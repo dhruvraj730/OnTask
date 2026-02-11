@@ -10,6 +10,11 @@ const subscribeUser = async (req, res) => {
         const user = await User.findById(req.user.id);
 
         if (user) {
+            // Ensure subscription object exists
+            if (!user.subscription) {
+                user.subscription = { plan: 'none', status: 'none' };
+            }
+
             user.subscription.plan = plan;
             user.subscription.status = 'active';
             // Set expiry to 30 days from now
@@ -18,6 +23,7 @@ const subscribeUser = async (req, res) => {
             user.subscription.expiresAt = expiry;
 
             await user.save();
+            console.log(`User ${user.email} upgraded to ${plan}`);
 
             res.json({
                 message: `Successfully subscribed to ${plan}`,

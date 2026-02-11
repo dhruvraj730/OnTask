@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import AuthContext from '../context/AuthContext';
 import GlassContainer from '../components/premium/GlassContainer';
 import AnimatedCard from '../components/premium/AnimatedCard';
 
 const TaskerSearch = () => {
+    const { user } = useContext(AuthContext);
     const [jobs, setJobs] = useState([]);
     const [filters, setFilters] = useState({
         title: '',
@@ -73,9 +75,17 @@ const TaskerSearch = () => {
                                 <p>💰 {job.salary}</p>
                             </div>
                             <p className="text-gray-600 text-sm mb-4 line-clamp-3">{job.description}</p>
-                            <button className="w-full py-2 bg-blue-100 text-blue-700 font-semibold rounded-lg hover:bg-blue-200 transition-colors">
-                                View Details & Apply
-                            </button>
+                            {user?.role === 'job_seeker' ? (
+                                <button className="w-full py-2 bg-blue-100 text-blue-700 font-semibold rounded-lg hover:bg-blue-200 transition-colors">
+                                    View Details & Apply
+                                </button>
+                            ) : !user ? (
+                                <button className="w-full py-2 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors">
+                                    Login to Apply
+                                </button>
+                            ) : (
+                                <p className="text-xs text-center text-gray-400 italic">Job seekers only</p>
+                            )}
                         </AnimatedCard>
                     ))}
                     {jobs.length === 0 && <p className="text-gray-500 col-span-full text-center">No jobs found matching your criteria.</p>}

@@ -15,6 +15,7 @@ const LoginPage = () => {
     useEffect(() => {
         if (user) {
             if (user.role === 'employer') navigate('/pro/dashboard');
+            else if (user.role === 'job_seeker') navigate('/tasker/dashboard');
             else navigate('/');
         }
     }, [user, navigate]);
@@ -29,7 +30,10 @@ const LoginPage = () => {
     const onSubmit = async (e) => {
         e.preventDefault();
         try {
-            await login(email, password);
+            const userData = await login(email, password);
+            if (userData.role === 'employer') navigate('/pro/dashboard');
+            else if (userData.role === 'job_seeker') navigate('/tasker/dashboard');
+            else navigate('/');
         } catch (error) {
             console.error(error);
             const msg = error.response?.data?.message || 'Login Failed';

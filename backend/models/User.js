@@ -58,6 +58,17 @@ const userSchema = mongoose.Schema({
         reviewerName: String,
         date: { type: Date, default: Date.now }
     }],
+    totalWithdrawn: {
+        type: Number,
+        default: 0
+    },
+    transactions: [{
+        type: { type: String, enum: ['deposit', 'withdrawal', 'payment'], required: true },
+        amount: { type: Number, required: true },
+        description: { type: String, required: true },
+        status: { type: String, enum: ['pending', 'completed', 'failed'], default: 'completed' },
+        date: { type: Date, default: Date.now }
+    }],
     // Subscription
     subscription: {
         plan: {
@@ -83,10 +94,36 @@ const userSchema = mongoose.Schema({
         type: String,
         default: ''
     },
+    website: {
+        type: String,
+        default: ''
+    },
+    hiringNeeds: {
+        type: [String],
+        default: []
+    },
+    businessAddress: {
+        street: { type: String, default: '' },
+        city: { type: String, default: '' },
+        state: { type: String, default: '' },
+        zip: { type: String, default: '' },
+        taxId: { type: String, default: '' }
+    },
     role: {
         type: String,
         enum: ['job_seeker', 'employer'],
         default: 'job_seeker'
+    },
+    // Enhanced Tasker Profile
+    professionalTitle: {
+        type: String,
+        default: ''
+    },
+    bankDetails: {
+        accountHolderName: { type: String, default: '' },
+        bankName: { type: String, default: '' },
+        accountNumber: { type: String, default: '' },
+        routingNumber: { type: String, default: '' }
     }
 }, {
     timestamps: true

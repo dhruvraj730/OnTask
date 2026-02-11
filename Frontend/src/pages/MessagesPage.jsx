@@ -57,7 +57,7 @@ const MessagesPage = () => {
             if (initialChatUserId && !res.data.find(c => c._id === initialChatUserId)) {
                 // Creating a "fake" conversation object to start chat
                 // In production, fetch this user's data from an API
-                setCurrentChat({ _id: initialChatUserId, name: location.state?.userName || 'New Chat' });
+                setCurrentChat({ _id: initialChatUserId, name: location.state?.recipientName || location.state?.userName || 'New Chat' });
             }
         } catch (error) {
             console.error(error);
@@ -93,6 +93,12 @@ const MessagesPage = () => {
             }
         } catch (error) {
             console.error(error);
+            // Safety Check Alert
+            if (error.response && error.response.status === 400 && error.response.data.message.includes('blocked')) {
+                alert("⚠️ " + error.response.data.message);
+            } else {
+                alert("Failed to send message");
+            }
         }
     };
 
@@ -128,7 +134,7 @@ const MessagesPage = () => {
                         <>
                             {/* Chat Header */}
                             <div className="p-4 border-b border-gray-200 bg-white/60 backdrop-blur-md flex items-center shadow-sm z-10">
-                                <h2 className="font-bold text-lg text-gray-800">{currentChat.name}</h2>
+                                <h2 className="font-bold text-lg text-gray-800">{currentChat.name || "Chat"}</h2>
                             </div>
 
                             {/* Messages */}

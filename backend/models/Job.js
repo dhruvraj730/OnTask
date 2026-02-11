@@ -58,6 +58,24 @@ const jobSchema = mongoose.Schema({
             question: String,
             answer: String
         }],
+        proposal: {
+            type: String
+        },
+        assessmentScore: {
+            type: Number,
+            default: 0
+        },
+        interviewStatus: {
+            type: String,
+            enum: ['none', 'pending', 'scheduled', 'completed'],
+            default: 'none'
+        },
+        interviewLink: {
+            type: String
+        },
+        interviewDate: {
+            type: Date
+        },
         status: {
             type: String,
             enum: ['applied', 'interviewing', 'hired', 'rejected'],

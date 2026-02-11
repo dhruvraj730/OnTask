@@ -40,6 +40,9 @@ app.use('/api/search', require('./routes/searchRoutes'));
 app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/payment', require('./routes/paymentRoutes'));
 app.use('/api/work', require('./routes/workRoutes'));
+app.use('/api/applications', require('./routes/applicationRoutes'));
+app.use('/api/wallet', require('./routes/walletRoutes'));
+app.use('/api/users', require('./routes/userRoutes'));
 
 app.get('/', (req, res) => res.send('OnTask Backend is running'));
 

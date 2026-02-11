@@ -5,7 +5,7 @@ import GradientButton from '../components/premium/GradientButton';
 import axios from 'axios';
 
 const ProfilePage = () => {
-    const { user, setUser } = useContext(AuthContext); // Assuming setUser is available or we refresh
+    const { user, updateProfile } = useContext(AuthContext);
     const [isEditing, setIsEditing] = useState(false);
     const [profileData, setProfileData] = useState({
         name: '',
@@ -22,9 +22,14 @@ const ProfilePage = () => {
                 name: user.name || '',
                 email: user.email || '',
                 bio: user.bio || '',
-                skills: user.skills ? user.skills.join(', ') : '',
+                skills: user.skills ? (Array.isArray(user.skills) ? user.skills.join(', ') : user.skills) : '',
                 hourlyRate: user.hourlyRate || '',
-                experience: user.experience || ''
+                experience: user.experience || '',
+                // Organizer Fields
+                companyName: user.companyName || '',
+                industry: user.industry || '',
+                website: user.website || '',
+                hiringNeeds: user.hiringNeeds ? (Array.isArray(user.hiringNeeds) ? user.hiringNeeds.join(', ') : user.hiringNeeds) : '',
             });
         }
     }, [user]);
@@ -35,14 +40,10 @@ const ProfilePage = () => {
 
     const onSave = async () => {
         try {
-            // In a real app, we'd have a PUT /api/users/profile endpoint
-            // For now, let's mock the success or assume an endpoint exists (I will need to create it)
-            const res = await axios.put('http://localhost:5000/api/auth/profile', {
+            await updateProfile({
                 ...profileData,
                 skills: typeof profileData.skills === 'string' ? profileData.skills.split(',').map(s => s.trim()) : profileData.skills
             });
-            setUser(res.data);
-            localStorage.setItem('user', JSON.stringify(res.data)); // Persist update
             setIsEditing(false);
         } catch (error) {
             console.error(error);
@@ -115,7 +116,7 @@ const ProfilePage = () => {
                                 />
                             </div>
 
-                            {user.role === 'job_seeker' && (
+                            {user.role === 'job_seeker' ? (
                                 <>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">Skills (comma separated)</label>
@@ -152,6 +153,60 @@ const ProfilePage = () => {
                                                 className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                                             />
                                         </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    {/* Organizer / Employer Fields */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Company Name</label>
+                                        <input
+                                            type="text"
+                                            name="companyName"
+                                            disabled={!isEditing}
+                                            value={profileData.companyName || ''}
+                                            onChange={onChange}
+                                            placeholder="Your Organization Name"
+                                            className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Industry</label>
+                                            <input
+                                                type="text"
+                                                name="industry"
+                                                disabled={!isEditing}
+                                                value={profileData.industry || ''}
+                                                onChange={onChange}
+                                                placeholder="e.g. Events"
+                                                className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Website</label>
+                                            <input
+                                                type="url"
+                                                name="website"
+                                                disabled={!isEditing}
+                                                value={profileData.website || ''}
+                                                onChange={onChange}
+                                                placeholder="https://..."
+                                                className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Hiring Needs (comma separated)</label>
+                                        <input
+                                            type="text"
+                                            name="hiringNeeds"
+                                            disabled={!isEditing}
+                                            value={profileData.hiringNeeds || ''}
+                                            onChange={onChange}
+                                            placeholder="e.g. Bartenders, DJs, Servers"
+                                            className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                        />
                                     </div>
                                 </>
                             )}

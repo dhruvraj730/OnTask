@@ -12,6 +12,17 @@ const sendMessage = async (req, res) => {
             return res.status(400).json({ message: 'Recipient and content are required' });
         }
 
+        // Safety Check: Restricted Keywords
+        const restrictedKeywords = ['email', 'phone', '@', 'pay', 'whatsapp', 'call me', 'contact me'];
+        const contentLower = content.toLowerCase();
+        const foundKeyword = restrictedKeywords.find(keyword => contentLower.includes(keyword));
+
+        if (foundKeyword) {
+            return res.status(400).json({
+                message: `Message blocked: Contains restricted keyword "${foundKeyword}". Please keep communication within OnTask for your safety.`
+            });
+        }
+
         const message = await Message.create({
             sender: req.user.id,
             recipient: recipientId,

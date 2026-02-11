@@ -39,6 +39,12 @@ const PricingPage = () => {
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
+            if (!token) {
+                alert("Please log in to subscribe.");
+                navigate('/login');
+                return;
+            }
+
             const res = await axios.post('/api/payment/subscribe',
                 { plan: planId },
                 { headers: { Authorization: `Bearer ${token}` } }
@@ -53,7 +59,8 @@ const PricingPage = () => {
             navigate(-1); // Go back to where they came from (Post Job or Apply)
         } catch (error) {
             console.error(error);
-            alert('Payment failed. Please try again.');
+            const errorMsg = error.response?.data?.message || 'Payment failed. Please try again.';
+            alert(`Payment failed: ${errorMsg}`);
         } finally {
             setLoading(false);
         }

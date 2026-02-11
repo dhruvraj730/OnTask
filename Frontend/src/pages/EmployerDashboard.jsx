@@ -1,161 +1,251 @@
 import { useState, useEffect, useContext } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { Sparkles, MessageSquare, Clock, ArrowRight, User, Star, Briefcase } from 'lucide-react';
+import AIChatbot from '../components/AIChatbot';
 
 const EmployerDashboard = () => {
-    const [jobs, setJobs] = useState([]);
     const { user } = useContext(AuthContext);
+    const [jobs, setJobs] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
 
     useEffect(() => {
+        if (!user) {
+            navigate('/login');
+            return;
+        }
+        if (user.role !== 'employer') {
+            navigate(user.role === 'job_seeker' ? '/tasker/dashboard' : '/');
+            return;
+        }
+
         const fetchJobs = async () => {
             try {
                 const res = await axios.get('/api/jobs/my-jobs');
                 setJobs(res.data);
             } catch (err) {
                 console.error(err);
+            } finally {
+                setLoading(false);
             }
         };
         fetchJobs();
-    }, []);
+    }, [user, navigate]);
 
-    const handleReleasePayment = async (jobId, amount) => {
-        if (!window.confirm(`Release $${amount} to the tasker? This cannot be undone.`)) return;
-        try {
-            const token = localStorage.getItem('token');
-            const res = await axios.post(`/api/work/${jobId}/pay`, {}, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            alert('Payment Released Successfully!');
-            // Refresh jobs
-            const updatedJobs = jobs.map(j => j._id === jobId ? res.data : j);
-            setJobs(updatedJobs);
-        } catch (error) {
-            console.error(error);
-            alert('Failed to release payment');
+    // Mock Freelancers Data
+    const availableFreelancers = [
+        {
+            id: 1,
+            name: "Alex Johnson",
+            role: "React Development",
+            rating: 4.9,
+            jobCount: 24,
+            hourlyRate: 75,
+            status: "Available"
+        },
+        {
+            id: 2,
+            name: "Sarah Design",
+            role: "UI/UX Design",
+            rating: 4.8,
+            jobCount: 18,
+            hourlyRate: 65,
+            status: "Available"
+        },
+        {
+            id: 3,
+            name: "Mike Analytics",
+            role: "Data Analytics",
+            rating: 4.7,
+            jobCount: 32,
+            hourlyRate: 55,
+            status: "Busy"
+        },
+        {
+            id: 4,
+            name: "Emily Frontend",
+            role: "Frontend Development",
+            rating: 4.9,
+            jobCount: 28,
+            hourlyRate: 60,
+            status: "Available"
         }
-    };
+    ];
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-            <div className="flex justify-between items-center mb-8">
-                <h1 className="text-3xl font-bold text-gray-900">Employer Dashboard</h1>
-                <Link to="/pro/job/create" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-                    Post a New Job
-                </Link>
-            </div>
-
-            <div className="grid grid-cols-1 gap-6">
-                {jobs.length === 0 ? (
-                    <div className="text-center py-10 bg-white rounded-xl shadow-sm">
-                        <p className="text-gray-500 mb-4">You haven't posted any jobs yet.</p>
-                        <Link to="/pro/job/create" className="text-blue-600 hover:text-blue-800 font-bold">
-                            Post your first job query →
-                        </Link>
-                    </div>
-                ) : (
-                    jobs.map((job) => (
-                        <AnimatedCard key={job._id} className="relative overflow-hidden">
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <h3 className="text-xl font-bold text-gray-900">{job.title}</h3>
-                                    <p className="text-sm text-gray-500">{job.location} • Posted {new Date(job.createdAt).toLocaleDateString()}</p>
-                                </div>
-                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${job.jobStatus === 'paid' ? 'bg-green-100 text-green-800' :
-                                    job.jobStatus === 'completed' ? 'bg-blue-100 text-blue-800' :
-                                        job.jobStatus === 'hired' ? 'bg-purple-100 text-purple-800' :
-                                            'bg-yellow-100 text-yellow-800'
-                                    }`}>
-                                    {job.jobStatus.replace('_', ' ')}
-                                </span>
+        <div className="min-h-screen bg-gray-50 font-sans pb-20">
+            {/* Hero Section */}
+            <div className="bg-white px-4 sm:px-6 lg:px-8 pt-8 pb-12">
+                <div className="max-w-7xl mx-auto rounded-3xl overflow-hidden relative shadow-2xl bg-blue-600 text-white">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center p-12">
+                        <div className="space-y-6 z-10">
+                            <h1 className="text-4xl md:text-5xl font-bold leading-tight">
+                                Build Your Dream Team
+                            </h1>
+                            <p className="text-blue-100 text-lg max-w-lg">
+                                Connect with top talent, manage projects effortlessly, and scale your business with OnTask.
+                            </p>
+                            <div className="flex gap-4 pt-4">
+                                <button className="px-6 py-3 bg-white text-blue-600 font-bold rounded-lg shadow hover:bg-gray-100 transition-colors">
+                                    Upgrade Plan
+                                </button>
+                                <Link to="/find-talent" className="px-6 py-3 bg-blue-700 text-white font-bold rounded-lg border border-blue-500 hover:bg-blue-800 transition-colors">
+                                    Browse Talent
+                                </Link>
                             </div>
-
-                            <p className="text-gray-600 mb-6 line-clamp-2">{job.description}</p>
-
-                            {/* Work Status & Payment Section */}
-                            {job.jobStatus !== 'open' && (
-                                <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100 mb-4">
-                                    <h4 className="font-bold text-gray-800 mb-2 flex items-center">
-                                        <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-                                        Work Progress & Payment
-                                    </h4>
-
-                                    <div className="flex items-center justify-between mb-4 bg-white p-3 rounded shadow-sm">
-                                        <div>
-                                            <p className="text-xs text-gray-500 uppercase">Escrow Balance</p>
-                                            <p className="font-bold text-lg">${job.escrowAmount}</p>
+                        </div>
+                        {/* Right Graphic Mockup */}
+                        <div className="hidden md:flex justify-center items-center relative">
+                            <div className="bg-blue-500/30 backdrop-blur-sm p-8 rounded-2xl border border-blue-400/30 flex flex-col items-center">
+                                <div className="flex -space-x-4 mb-4">
+                                    {[1, 2, 3].map(i => (
+                                        <div key={i} className="w-12 h-12 rounded-full bg-gray-300 border-2 border-blue-600 flex items-center justify-center text-gray-700 bg-white shadow-sm font-bold">
+                                            {i === 1 ? 'A' : i === 2 ? 'S' : 'M'}
                                         </div>
-                                        {job.jobStatus !== 'paid' && job.escrowAmount > 0 ? (
-                                            <button
-                                                onClick={() => handleReleasePayment(job._id, job.escrowAmount)}
-                                                className="px-4 py-2 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 shadow-md transition-all transform hover:scale-105"
-                                            >
-                                                Release Payment 💸
-                                            </button>
-                                        ) : job.jobStatus === 'paid' && (
-                                            <span className="text-green-600 font-bold flex items-center">
-                                                Paid ✓
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    {/* Progress Updates */}
-                                    <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
-                                        <p className="text-xs font-bold text-gray-500 uppercase mb-2">Live Updates</p>
-                                        {job.progressUpdates && job.progressUpdates.length > 0 ? (
-                                            job.progressUpdates.map((u, idx) => (
-                                                <div key={idx} className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm text-sm">
-                                                    <div className="flex justify-between text-xs text-gray-400 mb-1">
-                                                        <span>{new Date(u.date).toLocaleDateString()}</span>
-                                                        <span>Update #{idx + 1}</span>
-                                                    </div>
-                                                    <p className="text-gray-800 mb-2">{u.description}</p>
-                                                    {u.imageUrl && (
-                                                        <a href={u.imageUrl} target="_blank" rel="noreferrer" className="text-blue-500 text-xs hover:underline flex items-center">
-                                                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                                                            View Proof
-                                                        </a>
-                                                    )}
-                                                </div>
-                                            ))
-                                        ) : <div className="text-center text-gray-400 py-2 italic">Waiting for tasker updates...</div>}
-                                    </div>
+                                    ))}
                                 </div>
-                            )}
-
-                            {/* Applicants */}
-                            <div className="border-t border-gray-100 pt-4">
-                                <h3 className="font-bold text-gray-900 mb-3 flex items-center">
-                                    Applicants
-                                    <span className="ml-2 bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">{job.applications?.length || 0}</span>
-                                </h3>
-                                {job.applications && job.applications.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {job.applications.map((app, idx) => (
-                                            <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg hover:bg-gray-100 transition-colors">
-                                                <div className="flex items-center">
-                                                    <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-400 to-pink-500 flex items-center justify-center text-white font-bold text-xs mr-3">
-                                                        {app.applicantName?.charAt(0) || 'U'}
-                                                    </div>
-                                                    <span className="font-medium text-gray-800">{app.applicantName || "Candidate"}</span>
-                                                </div>
-                                                <button
-                                                    onClick={() => handleInterview(app.applicant, app.applicantName)}
-                                                    className="text-xs bg-white border border-purple-200 text-purple-700 px-3 py-1.5 rounded-lg font-bold hover:bg-purple-50 hover:border-purple-300 transition-all shadow-sm"
-                                                >
-                                                    Interview 💬
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-gray-400 italic">No one has applied yet.</p>
-                                )}
+                                <p className="font-bold text-lg">5000+ Top Freelancers</p>
                             </div>
-                        </AnimatedCard>
-                    ))
-                )}
+                        </div>
+                    </div>
+                    {/* Background decoration */}
+                    <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 rounded-full bg-white/10 blur-3xl"></div>
+                </div>
             </div>
+
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+
+                {/* Welcome Message */}
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Welcome Back</h2>
+                    <p className="text-gray-500">Manage your projects and find top talent</p>
+                </div>
+
+                {/* Available Freelancers */}
+                <div>
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold text-gray-900">Available Freelancers</h3>
+                        <Link to="/find-talent" className="text-sm font-semibold text-gray-500 hover:text-blue-600">View All Talent</Link>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {availableFreelancers.map((freelancer) => (
+                            <div key={freelancer.id} className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                                <div className="space-y-4">
+                                    <div>
+                                        <h4 className="font-bold text-lg text-gray-900">{freelancer.name}</h4>
+                                        <p className="text-sm text-gray-500">{freelancer.role}</p>
+                                    </div>
+
+                                    <div className="flex items-center gap-4 text-sm">
+                                        <div className="flex items-center text-yellow-500 font-bold">
+                                            <Star className="w-4 h-4 fill-current mr-1" />
+                                            {freelancer.rating}
+                                            <span className="text-gray-400 font-normal ml-1">({freelancer.jobCount} jobs)</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center text-gray-700 font-medium">
+                                        <Clock className="w-4 h-4 mr-2" />
+                                        ₹{freelancer.hourlyRate}/hr
+                                    </div>
+
+                                    <div>
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${freelancer.status === 'Available' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                            {freelancer.status}
+                                        </span>
+                                    </div>
+
+                                    <button className="w-full py-2 bg-blue-900 text-white rounded-lg font-bold text-sm hover:bg-blue-800 transition-colors">
+                                        View Profile
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* AI Job Poster Banner */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-green-500 p-4 rounded-xl text-white shadow-lg">
+                            <Sparkles className="w-8 h-8" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900">AI Job Poster</h3>
+                            <p className="text-gray-500">Generate professional job posts instantly with AI</p>
+                        </div>
+                    </div>
+                    <Link to="/pro/job/create" className="px-6 py-3 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition-colors shadow-md whitespace-nowrap">
+                        Create Job
+                    </Link>
+                </div>
+
+                {/* Active Projects */}
+                <div>
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold text-gray-900">Active Projects</h3>
+                        <Link to="/pro/jobs" className="text-sm font-semibold text-gray-500 hover:text-blue-600">View All</Link>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {loading ? (
+                            <p>Loading projects...</p>
+                        ) : jobs.length > 0 ? (
+                            jobs.slice(0, 3).map((job) => (
+                                <Link to={`/project/${job._id}`} key={job._id} className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group">
+                                    <h4 className="font-bold text-gray-900 mb-2 truncate group-hover:text-blue-600 transition-colors">{job.title}</h4>
+                                    <p className="text-gray-500 text-sm mb-4">
+                                        Assigned to: <span className="font-semibold text-gray-900">
+                                            {job.hiredTasker?.name || "In Progress"}
+                                        </span>
+                                    </p>
+
+                                    <div className="mb-4">
+                                        <div className="flex justify-between text-xs text-gray-400 mb-1">
+                                            <span>Progress</span>
+                                            <span>{job.progress || 45}%</span>
+                                        </div>
+                                        <div className="w-full bg-gray-100 rounded-full h-2">
+                                            <div
+                                                className="bg-blue-600 h-2 rounded-full"
+                                                style={{ width: `${job.progress || 45}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-start">
+                                        <span className="px-3 py-1 bg-red-50 text-red-600 text-xs font-bold rounded-md">
+                                            Immediate
+                                        </span>
+                                    </div>
+                                </Link>
+                            ))
+                        ) : (
+                            <p className="text-gray-500 col-span-3 text-center py-8">No active projects found. Use the AI Job Poster to start!</p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Messages Mini Section */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
+                            <MessageSquare className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-gray-900">Messages</h4>
+                            <p className="text-sm text-gray-500">Communicate with your freelancers</p>
+                        </div>
+                    </div>
+                    <Link to="/messages" className="px-4 py-2 border border-gray-200 rounded-lg text-gray-700 font-bold hover:bg-gray-50 transition-colors">
+                        Open Messages
+                    </Link>
+                </div>
+
+            </div>
+            <AIChatbot />
         </div>
     );
 };
