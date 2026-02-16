@@ -174,6 +174,64 @@ const addJobUpdate = async (req, res) => {
     }
 }
 
+// @desc    Apply for a job
+// @route   POST /api/jobs/:id/apply
+// @access  Private (Job Seeker only)
+const applyForJob = async (req, res) => {
+    console.log(`[ApplyForJob] Request received for Job ID: ${req.params.id}`);
+    console.log(`[ApplyForJob] User ID: ${req.user?._id}, Role: ${req.user?.role}`);
+
+    try {
+        const { proposal } = req.body;
+        const job = await Job.findById(req.params.id);
+
+        if (!job) {
+            console.log('[ApplyForJob] Job not found');
+            return res.status(404).json({ message: 'Job not found' });
+        }
+
+        if (req.user.role !== 'job_seeker') {
+            console.log(`[ApplyForJob] User is not a job seeker: ${req.user.role}`);
+            return res.status(403).json({ message: 'Only job seekers can apply' });
+        }
+
+        if (!job.applications) {
+            job.applications = [];
+        }
+
+        // Check if already applied
+        const alreadyApplied = job.applications.find(
+            app => app.applicant.toString() === req.user.id
+        );
+
+        if (alreadyApplied) {
+            console.log('[ApplyForJob] User already applied');
+            return res.status(400).json({ message: 'You have already applied for this job' });
+        }
+
+        // Check if job is open
+        if (job.jobStatus !== 'open') {
+            console.log(`[ApplyForJob] Job status is not open: ${job.jobStatus}`);
+            return res.status(400).json({ message: 'This job is no longer accepting applications' });
+        }
+
+        const application = {
+            applicant: req.user.id,
+            proposal: proposal || '',
+            appliedAt: Date.now(),
+            status: 'applied'
+        };
+
+        job.applications.push(application);
+        await job.save();
+
+        console.log('[ApplyForJob] Application submitted successfully');
+        res.status(200).json(job);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+}
+
 module.exports = {
     getJobs,
     createJob,
@@ -181,5 +239,7 @@ module.exports = {
     getJobById,
     scheduleInterview,
     hireApplicant,
-    addJobUpdate
+    addJobUpdate,
+    applyForJob
 }
+

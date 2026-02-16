@@ -5,31 +5,70 @@ const Job = require('../models/Job');
 // @access  Private
 const getMyApplications = async (req, res) => {
     try {
+        // DEBUG: Return mock data to test connectivity
+        const mockApplications = [
+            {
+                jobId: "123",
+                jobTitle: "Debug Job Title",
+                company: "Debug Company",
+                salary: "₹100k",
+                status: "applied",
+                appliedAt: new Date(),
+                proposal: "Debug proposal",
+                interviewStatus: "none"
+            }
+        ];
+
+        return res.status(200).json(mockApplications);
+
+        /*
         const jobs = await Job.find({
             'applications.applicant': req.user.id
-        }).populate('employer', 'name email').sort('-createdAt');
+        })
+            .populate('employer', 'name email')
+            .lean(); // Use lean for better performance and POJO
 
-        const applications = jobs.map(job => {
+        const fifteenDaysAgo = new Date();
+        fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+
+        const applications = jobs.reduce((acc, job) => {
+            if (!job.applications || !Array.isArray(job.applications)) return acc;
+
+            // Find the specific application for this user
             const application = job.applications.find(
-                app => app.applicant.toString() === req.user.id
+                app => app.applicant && app.applicant.toString() === req.user.id
             );
-            return {
-                jobId: job._id,
-                jobTitle: job.title,
-                company: job.company,
-                salary: job.salary,
-                status: application.status,
-                appliedAt: application.appliedAt,
-                proposal: application.proposal,
-                interviewStatus: application.interviewStatus,
-                interviewLink: application.interviewLink,
-                interviewDate: application.interviewDate
-            };
-        });
+
+            if (!application) return acc;
+
+            const appliedAtDate = application.appliedAt ? new Date(application.appliedAt) : new Date();
+
+            // Filter for last 15 days
+            if (appliedAtDate >= fifteenDaysAgo) {
+                acc.push({
+                    jobId: job._id,
+                    jobTitle: job.title,
+                    company: job.company || 'Unknown Company',
+                    salary: job.salary || 'N/A',
+                    status: application.status || 'applied',
+                    appliedAt: appliedAtDate,
+                    proposal: application.proposal || '',
+                    interviewStatus: application.interviewStatus || 'none',
+                    interviewLink: application.interviewLink || '',
+                    interviewDate: application.interviewDate
+                });
+            }
+            return acc;
+        }, []);
+
+        // Sort by appliedAt descending
+        applications.sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt));
 
         res.status(200).json(applications);
+        */
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error("Error in getMyApplications:", error);
+        res.status(500).json({ message: "Failed to fetch applications" });
     }
 };
 

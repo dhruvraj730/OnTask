@@ -12,10 +12,68 @@ const MyApplicationsPage = () => {
     const [completedJobs, setCompletedJobs] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Update Form State
-    const [updateJobId, setUpdateJobId] = useState(null);
+    const [expandedHistory, setExpandedHistory] = useState({});
+
+    const toggleHistory = (jobId) => {
+        setExpandedHistory(prev => ({
+            ...prev,
+            [jobId]: !prev[jobId]
+        }));
+    };
+
+    const [error, setError] = useState(null);
+
+    // Update Modal State
+    const [showUpdateModal, setShowUpdateModal] = useState(false);
+    const [selectedJobForUpdate, setSelectedJobForUpdate] = useState(null);
     const [updateDescription, setUpdateDescription] = useState('');
-    const [updateImage, setUpdateImage] = useState(''); // Simple string for now, could be file upload later
+    const [updateImageUrl, setUpdateImageUrl] = useState('');
+    const [submittingUpdate, setSubmittingUpdate] = useState(false);
+
+    const handleOpenUpdateModal = (job) => {
+        setSelectedJobForUpdate(job);
+        setUpdateDescription('');
+        setUpdateImageUrl('');
+        setShowUpdateModal(true);
+    };
+
+    const handleCloseUpdateModal = () => {
+        setShowUpdateModal(false);
+        setSelectedJobForUpdate(null);
+        setUpdateDescription('');
+        setUpdateImageUrl('');
+    };
+
+    const handleSubmitUpdate = async (e) => {
+        e.preventDefault();
+        if (!selectedJobForUpdate) return;
+
+        setSubmittingUpdate(true);
+        try {
+            const config = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+            };
+
+            await axios.post(
+                `/api/jobs/${selectedJobForUpdate._id}/update`,
+                { description: updateDescription, imageUrl: updateImageUrl },
+                config
+            );
+
+            // Refresh data
+            fetchData();
+            handleCloseUpdateModal();
+            // Optional: Show success message/toast
+        } catch (error) {
+            console.error('Error submitting update:', error);
+            setError(error.response?.data?.message || 'Failed to submit update');
+        } finally {
+            setSubmittingUpdate(false);
+        }
+    };
 
     useEffect(() => {
         if (!user) {
@@ -26,7 +84,19 @@ const MyApplicationsPage = () => {
     }, [user, activeTab]);
 
     const fetchData = async () => {
+        console.log("fetchData started. ActiveTab:", activeTab);
         setLoading(true);
+        setError(null);
+
+        // Failsafe timeout
+        const timeoutId = setTimeout(() => {
+            if (loading) {
+                console.error("Fetch timed out!");
+                setError("Request timed out. Please try refreshing.");
+                setLoading(false);
+            }
+        }, 8000);
+
         try {
             const config = {
                 headers: {
@@ -36,7 +106,11 @@ const MyApplicationsPage = () => {
 
             if (activeTab === 'applications') {
                 const res = await axios.get('/api/applications/my-applications', config);
-                setApplications(res.data);
+                if (Array.isArray(res.data)) {
+                    setApplications(res.data);
+                } else {
+                    setApplications([]);
+                }
             } else if (activeTab === 'active') {
                 const res = await axios.get('/api/applications/active-contracts', config);
                 setActiveContracts(res.data);
@@ -44,36 +118,13 @@ const MyApplicationsPage = () => {
                 const res = await axios.get('/api/applications/completed', config);
                 setCompletedJobs(res.data);
             }
+            clearTimeout(timeoutId);
         } catch (error) {
             console.error('Error fetching data:', error);
+            setError(error.message || "Failed to load data");
         } finally {
             setLoading(false);
-        }
-    };
-
-    const handleSubmitUpdate = async (e) => {
-        e.preventDefault();
-        try {
-            const config = {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            };
-
-            await axios.post(
-                `/api/work/${updateJobId}/progress`,
-                { description: updateDescription, imageUrl: updateImage },
-                config
-            );
-
-            alert('Update submitted successfully!');
-            setUpdateJobId(null);
-            setUpdateDescription('');
-            setUpdateImage('');
-            fetchData(); // Refresh list
-        } catch (error) {
-            console.error('Error submitting update:', error);
-            alert('Failed to submit update');
+            clearTimeout(timeoutId);
         }
     };
 
@@ -104,18 +155,32 @@ const MyApplicationsPage = () => {
             </div>
 
             {/* Content */}
+            {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+                    <p className="font-bold">Error:</p>
+                    <p>{error}</p>
+                </div>
+            )}
+
             {loading ? (
-                <div className="text-center py-10 text-gray-500">Loading...</div>
+                <div className="text-center py-10 text-gray-500">
+                    <p>Loading your applications...</p>
+                    <p className="text-xs text-gray-400 mt-2">Connecting to server...</p>
+                </div>
             ) : (
                 <div className="space-y-6">
                     {/* All Applications Tab */}
                     {activeTab === 'applications' && (
                         <div>
+                            <div className="mb-4 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 inline-block px-3 py-1 rounded-full">
+                                Showing applications from last 15 days
+                            </div>
                             {applications.length === 0 ? (
-                                <p className="text-gray-500">No applications found.</p>
+                                <p className="text-gray-500">No recent applications found.</p>
                             ) : (
                                 applications.map((app) => (
                                     <div key={app.jobId} className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mb-4">
+                                        {/* ... (keep application item content) ... */}
                                         <div className="flex justify-between items-start mb-2">
                                             <h3 className="text-xl font-bold text-gray-800">{app.jobTitle}</h3>
                                             <span className={`px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide
@@ -171,7 +236,11 @@ const MyApplicationsPage = () => {
                                                 <p className="text-gray-600">{job.company}</p>
                                             </div>
                                             <div className="text-right">
-                                                <span className="block text-green-600 font-bold">{job.salary?.includes('$') ? job.salary.replace('$', '₹') : job.salary}</span>
+                                                <span className="block text-green-600 font-bold">
+                                                    {job.salary && String(job.salary).includes('₹')
+                                                        ? String(job.salary)
+                                                        : (String(job.salary).includes('$') ? String(job.salary).replaceAll('$', '₹') : job.salary || 'N/A')}
+                                                </span>
                                                 <span className="text-xs text-gray-400">Due in 2 weeks (Mock)</span>
                                             </div>
                                         </div>
@@ -185,54 +254,52 @@ const MyApplicationsPage = () => {
                                             <span>35%</span>
                                         </div>
 
-                                        {/* Update Button or Form */}
-                                        {updateJobId === job._id ? (
-                                            <form onSubmit={handleSubmitUpdate} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                                <h4 className="font-semibold mb-3">Send Update to Provider</h4>
-                                                <div className="mb-3">
-                                                    <label className="block text-sm font-medium text-gray-700 mb-1">What have you accomplished?</label>
-                                                    <textarea
-                                                        className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
-                                                        rows="3"
-                                                        value={updateDescription}
-                                                        onChange={(e) => setUpdateDescription(e.target.value)}
-                                                        placeholder="Share your progress..."
-                                                        required
-                                                    ></textarea>
-                                                </div>
-                                                <div className="mb-4">
-                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Image URL (Optional)</label>
-                                                    <input
-                                                        type="text"
-                                                        className="w-full p-2 border rounded-md"
-                                                        value={updateImage}
-                                                        onChange={(e) => setUpdateImage(e.target.value)}
-                                                        placeholder="http://..."
-                                                    />
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        type="submit"
-                                                        className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-                                                    >
-                                                        Send Update
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setUpdateJobId(null)}
-                                                        className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300"
-                                                    >
-                                                        Cancel
-                                                    </button>
-                                                </div>
-                                            </form>
-                                        ) : (
+                                        <div className="mb-4">
                                             <button
-                                                onClick={() => setUpdateJobId(job._id)}
-                                                className="w-full bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 transition-colors"
+                                                onClick={() => handleOpenUpdateModal(job)}
+                                                className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors w-full sm:w-auto"
+                                                style={{ color: 'white' }}
                                             >
-                                                Submit Updates
+                                                Submit Update
                                             </button>
+                                        </div>
+
+                                        {/* Progress History Toggle */}
+                                        {job.progressUpdates && job.progressUpdates.length > 0 && (
+                                            <div className="mb-6">
+                                                <button
+                                                    onClick={() => toggleHistory(job._id)}
+                                                    className="flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors mb-2 focus:outline-none"
+                                                >
+                                                    <span>{expandedHistory[job._id] ? 'Hide' : 'View'} Work History ({job.progressUpdates.length})</span>
+                                                    <svg className={`w-4 h-4 transform transition-transform ${expandedHistory[job._id] ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                </button>
+
+                                                {expandedHistory[job._id] && (
+                                                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 animate-in fade-in slide-in-from-top-2">
+                                                        <div className="space-y-4">
+                                                            {job.progressUpdates.slice().reverse().map((update, idx) => (
+                                                                <div key={idx} className="flex gap-3 text-sm">
+                                                                    <div className="w-2 h-2 mt-1.5 rounded-full bg-green-500 flex-shrink-0"></div>
+                                                                    <div className="flex-1">
+                                                                        <p className="text-gray-800">{update.description}</p>
+                                                                        {update.imageUrl && (
+                                                                            <div className="mt-2">
+                                                                                <img
+                                                                                    src={update.imageUrl}
+                                                                                    alt="Update attachment"
+                                                                                    className="h-20 w-20 object-cover rounded-md border border-gray-200 hover:scale-105 transition-transform"
+                                                                                />
+                                                                            </div>
+                                                                        )}
+                                                                        <p className="text-xs text-gray-500 mt-1">{new Date(update.date).toLocaleDateString()} at {new Date(update.date).toLocaleTimeString()}</p>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
                                 ))
@@ -258,13 +325,121 @@ const MyApplicationsPage = () => {
                                             </span>
                                         </div>
                                         <div className="mt-4 text-sm text-gray-500">
-                                            Completed on: {new Date(job.updatedAt).toLocaleDateString()}
+                                            Completed on: {job.updatedAt ? new Date(job.updatedAt).toLocaleDateString() : 'Unknown date'}
                                         </div>
+
+                                        {job.progressUpdates && job.progressUpdates.length > 0 && (
+                                            <div className="mt-6">
+                                                <button
+                                                    onClick={() => toggleHistory(job._id)}
+                                                    className="flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-blue-600 transition-colors mb-2 focus:outline-none"
+                                                >
+                                                    <span>{expandedHistory[job._id] ? 'Hide' : 'View'} Work History ({job.progressUpdates.length})</span>
+                                                    <svg className={`w-4 h-4 transform transition-transform ${expandedHistory[job._id] ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                </button>
+
+                                                {expandedHistory[job._id] && (
+                                                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 animate-in fade-in slide-in-from-top-2">
+                                                        <div className="space-y-4">
+                                                            {job.progressUpdates.slice().reverse().map((update, idx) => (
+                                                                <div key={idx} className="flex gap-3 text-sm">
+                                                                    <div className="w-2 h-2 mt-1.5 rounded-full bg-green-500 flex-shrink-0"></div>
+                                                                    <div className="flex-1">
+                                                                        <p className="text-gray-800">{update.description}</p>
+                                                                        {update.imageUrl && (
+                                                                            <div className="mt-2">
+                                                                                <img
+                                                                                    src={update.imageUrl}
+                                                                                    alt="Update attachment"
+                                                                                    className="h-20 w-20 object-cover rounded-md border border-gray-200 hover:scale-105 transition-transform"
+                                                                                />
+                                                                            </div>
+                                                                        )}
+                                                                        <p className="text-xs text-gray-500 mt-1">{new Date(update.date).toLocaleDateString()} at {new Date(update.date).toLocaleTimeString()}</p>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 ))
                             )}
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Update Modal */}
+            {showUpdateModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                            <h3 className="text-lg font-bold text-gray-800">Submit Work Update</h3>
+                            <button onClick={handleCloseUpdateModal} className="text-gray-400 hover:text-gray-600">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSubmitUpdate} className="p-6">
+                            <div className="mb-4">
+                                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="description">
+                                    Description of Work
+                                </label>
+                                <textarea
+                                    id="description"
+                                    rows="4"
+                                    className="shadow-sm border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="Describe what you've accomplished..."
+                                    value={updateDescription}
+                                    onChange={(e) => setUpdateDescription(e.target.value)}
+                                    required
+                                ></textarea>
+                            </div>
+
+                            <div className="mb-6">
+                                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="imageUrl">
+                                    Image URL (Optional)
+                                </label>
+                                <input
+                                    id="imageUrl"
+                                    type="text"
+                                    className="shadow-sm border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="https://example.com/image.png"
+                                    value={updateImageUrl}
+                                    onChange={(e) => setUpdateImageUrl(e.target.value)}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Provide a direct link to a screenshot or file.</p>
+                            </div>
+
+                            <div className="flex justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={handleCloseUpdateModal}
+                                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md font-medium hover:bg-gray-300 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={submittingUpdate}
+                                    className={`px-4 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors flex items-center ${submittingUpdate ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                >
+                                    {submittingUpdate ? (
+                                        <>
+                                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Submitting...
+                                        </>
+                                    ) : 'Submit Update'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             )}
         </div>

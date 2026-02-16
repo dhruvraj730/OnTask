@@ -83,7 +83,7 @@ const ProfilePage = () => {
                                         <p className="text-xs text-gray-400">Rating</p>
                                     </div>
                                     <div className="text-center">
-                                        <p className="font-bold text-xl">${user.totalEarnings || 0}</p>
+                                        <p className="font-bold text-xl">₹{user.totalEarnings || 0}</p>
                                         <p className="text-xs text-gray-400">Earned</p>
                                     </div>
                                 </div>
@@ -132,7 +132,7 @@ const ProfilePage = () => {
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700">Hourly Rate ($)</label>
+                                            <label className="block text-sm font-medium text-gray-700">Hourly Rate (₹)</label>
                                             <input
                                                 type="number"
                                                 name="hourlyRate"

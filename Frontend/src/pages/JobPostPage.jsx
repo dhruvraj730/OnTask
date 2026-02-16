@@ -33,7 +33,7 @@ const JobPostPage = () => {
             // 1. Extract Salary (looking for $ or 'k')
             let extractedSalary = 'Competitive';
             const moneyMatch = aiPrompt.details.match(/(₹[\d,]+(\.\d{2})?(\/hr|\/yr)?)|(\$[\d,]+(\.\d{2})?(\/hr|\/yr)?)|(\d+k)/i);
-            if (moneyMatch) extractedSalary = moneyMatch[0].replace('$', '₹');
+            if (moneyMatch) extractedSalary = moneyMatch[0].replaceAll('$', '₹');
 
             // 2. Extract Location (looking for 'in [City]')
             let extractedLocation = 'Remote';
@@ -207,7 +207,7 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-2">Salary / Rate</label>
-                                    <input type="text" name="salary" required value={salary} onChange={onChange} className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. ₹50/hr or ₹60k/yr" />
+                                    <input type="text" name="salary" required value={salary} onChange={onChange} className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. ₹500/hr or ₹60k/yr" />
                                 </div>
                             </div>
 

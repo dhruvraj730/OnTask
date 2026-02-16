@@ -9,7 +9,7 @@ const topTalent = [
         role: "Event Photographer",
         rating: 4.9,
         reviews: 124,
-        hourlyRate: "$45/hr",
+        hourlyRate: "₹2500/hr",
         image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80",
         skills: ["Photography", "Editing", "Events"]
     },
@@ -18,7 +18,7 @@ const topTalent = [
         role: "Web Developer",
         rating: 5.0,
         reviews: 89,
-        hourlyRate: "$60/hr",
+        hourlyRate: "₹3000/hr",
         image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80",
         skills: ["React", "Node.js", "UI/UX"]
     },
@@ -27,7 +27,7 @@ const topTalent = [
         role: "Marketing Specialist",
         rating: 4.8,
         reviews: 215,
-        hourlyRate: "$40/hr",
+        hourlyRate: "₹1500/hr",
         image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80",
         skills: ["SEO", "Content", "Strategy"]
     },
@@ -36,7 +36,7 @@ const topTalent = [
         role: "Personal Driver",
         rating: 4.9,
         reviews: 310,
-        hourlyRate: "$35/hr",
+        hourlyRate: "₹800/hr",
         image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80",
         skills: ["Driving", "Logistics", "Safe"]
     }

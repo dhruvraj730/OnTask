@@ -10,6 +10,14 @@ const MyJobsPage = () => {
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('All'); // 'All', 'Open', 'In Progress', 'Completed'
+    const [expandedHistory, setExpandedHistory] = useState({});
+
+    const toggleHistory = (jobId) => {
+        setExpandedHistory(prev => ({
+            ...prev,
+            [jobId]: !prev[jobId]
+        }));
+    };
 
     useEffect(() => {
         const fetchJobs = async () => {
@@ -88,7 +96,7 @@ const MyJobsPage = () => {
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
                                     <div>
                                         <p className="text-xs font-bold text-gray-400 uppercase mb-1">Budget</p>
-                                        <p className="font-bold text-gray-900">{job.salary?.includes('$') ? job.salary.replace('$', '₹') : job.salary || 'N/A'}</p>
+                                        <p className="font-bold text-gray-900">{job.salary?.includes('$') ? job.salary.replaceAll('$', '₹') : (job.salary?.includes('₹') ? job.salary : (job.salary ? `₹${job.salary}` : 'N/A'))}</p>
                                     </div>
                                     <div>
                                         <p className="text-xs font-bold text-gray-400 uppercase mb-1">Applications</p>
@@ -122,12 +130,50 @@ const MyJobsPage = () => {
                                             <p className="text-sm font-bold text-gray-700">Progress</p>
                                             <p className="text-sm font-bold text-blue-600">{job.jobStatus === 'completed' ? '100%' : '45%'}</p>
                                         </div>
-                                        <div className="w-full bg-gray-100 rounded-full h-2">
+                                        <div className="w-full bg-gray-100 rounded-full h-2 mb-6">
                                             <div
                                                 className="bg-blue-600 h-2 rounded-full transition-all duration-1000"
                                                 style={{ width: job.jobStatus === 'completed' ? '100%' : '45%' }}
                                             ></div>
                                         </div>
+
+                                        {/* Progress Updates History */}
+                                        {job.progressUpdates && job.progressUpdates.length > 0 && (
+                                            <div>
+                                                <button
+                                                    onClick={() => toggleHistory(job._id)}
+                                                    className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors mb-3 focus:outline-none"
+                                                >
+                                                    <span>{expandedHistory[job._id] ? 'Hide' : 'View'} Work History ({job.progressUpdates.length})</span>
+                                                    <svg className={`w-4 h-4 transform transition-transform ${expandedHistory[job._id] ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                </button>
+
+                                                {expandedHistory[job._id] && (
+                                                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 animate-in fade-in slide-in-from-top-2">
+                                                        <div className="space-y-4">
+                                                            {job.progressUpdates.slice().reverse().map((update, idx) => (
+                                                                <div key={idx} className="flex gap-3 text-sm">
+                                                                    <div className="w-2 h-2 mt-1.5 rounded-full bg-green-500 flex-shrink-0"></div>
+                                                                    <div className="flex-1">
+                                                                        <p className="text-gray-800 font-medium">{update.description}</p>
+                                                                        {update.imageUrl && (
+                                                                            <div className="mt-2">
+                                                                                <img
+                                                                                    src={update.imageUrl}
+                                                                                    alt="Update attachment"
+                                                                                    className="h-24 w-auto object-cover rounded-md border border-gray-200 hover:scale-105 transition-transform"
+                                                                                />
+                                                                            </div>
+                                                                        )}
+                                                                        <p className="text-xs text-gray-500 mt-1">{new Date(update.date).toLocaleDateString()} at {new Date(update.date).toLocaleTimeString()}</p>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 

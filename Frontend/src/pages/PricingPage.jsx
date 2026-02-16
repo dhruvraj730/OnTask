@@ -14,14 +14,14 @@ const PricingPage = () => {
         {
             id: 'starter',
             name: 'Starter',
-            price: '$9.99',
+            price: '₹999',
             period: '/month',
             features: ['5 Job Posts per month', 'Basic Support', 'Standard Profile']
         },
         {
             id: 'pro',
             name: 'Pro',
-            price: '$19.99',
+            price: '₹1999',
             period: '/month',
             popular: true,
             features: ['Unlimited Job Posts', 'Priority Support', 'Verified Badge', 'Featured Listings']
@@ -29,7 +29,7 @@ const PricingPage = () => {
         {
             id: 'elite',
             name: 'Elite',
-            price: '$49.99',
+            price: '₹4999',
             period: '/month',
             features: ['All Pro Features', 'Dedicated Account Manager', 'AI-Powered Recruitment', 'Top of Search Results']
         }

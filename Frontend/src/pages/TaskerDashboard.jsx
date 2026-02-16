@@ -2,7 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthContext from '../context/AuthContext';
-import { Search, Briefcase, DollarSign, User, Sparkles, ArrowRight, Zap, MapPin } from 'lucide-react';
+import { Search, Briefcase, IndianRupee, User, Sparkles, ArrowRight, Zap, MapPin } from 'lucide-react';
 import { motion } from 'framer-motion';
 import AIChatbot from '../components/AIChatbot';
 
@@ -49,6 +49,29 @@ const TaskerDashboard = () => {
     const itemVariants = {
         hidden: { y: 20, opacity: 0 },
         visible: { y: 0, opacity: 1 }
+    };
+
+    const [aiQuery, setAiQuery] = useState('');
+    const [aiResults, setAiResults] = useState([]);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiSearched, setAiSearched] = useState(false);
+
+    const handleAiSearch = async (e) => {
+        e.preventDefault();
+        if (!aiQuery.trim()) return;
+
+        setAiLoading(true);
+        setAiSearched(true);
+        try {
+            // Using existing search API with title filter as a proxy for "AI" match
+            // In a real AI implementation, this would send the full natural language query
+            const res = await axios.get(`/api/search/jobs?title=${aiQuery}`);
+            setAiResults(res.data);
+        } catch (error) {
+            console.error("AI Search failed:", error);
+        } finally {
+            setAiLoading(false);
+        }
     };
 
     return (
@@ -117,30 +140,46 @@ const TaskerDashboard = () => {
 
                     <p className="text-gray-500 text-sm mb-6">Describe your ideal project and let AI help you find the perfect job match.</p>
 
-                    <div className="bg-gray-50 rounded-xl p-6 mb-6 border border-gray-100">
-                        {/* Chat Bubble Mockup */}
-                        <div className="flex justify-end mb-4">
-                            <div className="bg-blue-600 text-white px-4 py-2 rounded-2xl rounded-tr-sm text-sm font-medium shadow-sm">
-                                Budget Range ₹500
-                            </div>
-                        </div>
-                        <div className="flex justify-start mb-2">
-                            <div className="bg-white text-gray-700 px-4 py-2 rounded-2xl rounded-tl-sm text-sm font-medium shadow-sm border border-gray-200">
-                                Great! I found projects within your budget range. Here are the best matches for you.
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="relative">
+                    <form onSubmit={handleAiSearch} className="relative">
                         <input
                             type="text"
-                            placeholder="Tell me what you're looking for..."
+                            value={aiQuery}
+                            onChange={(e) => setAiQuery(e.target.value)}
+                            placeholder="Tell me what you're looking for (e.g., 'React', 'Logo Design')..."
                             className="w-full pl-6 pr-14 py-4 bg-white border border-gray-200 rounded-full shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
                         />
-                        <button className="absolute right-2 top-2 p-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-colors">
-                            <Zap className="w-5 h-5" />
+                        <button type="submit" className="absolute right-2 top-2 p-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-colors">
+                            {aiLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Zap className="w-5 h-5" />}
                         </button>
-                    </div>
+                    </form>
+
+                    {/* AI Results */}
+                    {aiSearched && (
+                        <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">AI Recommendations</h3>
+
+                            {aiResults.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {aiResults.map(job => (
+                                        <Link key={job._id} to={`/project/${job._id}`} className="block group">
+                                            <div className="p-4 rounded-xl border border-gray-100 hover:border-purple-200 hover:shadow-md transition-all bg-purple-50/30">
+                                                <h4 className="font-bold text-gray-900 group-hover:text-purple-700 transition-colors">{job.title}</h4>
+                                                <p className="text-sm text-gray-500 mt-1">{job.company} • {job.location}</p>
+                                                <div className="mt-3 flex items-center justify-between">
+                                                    <span className="text-xs font-bold px-2 py-1 bg-white rounded-md text-gray-600 border border-gray-100">{job.salary?.includes('$') ? job.salary.replaceAll('$', '₹') : (job.salary?.includes('₹') ? job.salary : (job.salary ? `₹${job.salary}` : 'N/A'))}</span>
+                                                    <ArrowRight className="w-4 h-4 text-purple-400 group-hover:translate-x-1 transition-transform" />
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                                    <p className="text-gray-500">No AI matches found for "{aiQuery}". Try broader keywords.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </motion.div>
 
                 {/* Matching Jobs */}
@@ -158,9 +197,8 @@ const TaskerDashboard = () => {
                             <p className="text-gray-500">Loading jobs...</p>
                         ) : jobs.length > 0 ? (
                             jobs.map((job) => (
-                                <motion.div
+                                <div
                                     key={job._id}
-                                    variants={itemVariants}
                                     className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow group cursor-pointer"
                                 >
                                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -182,16 +220,16 @@ const TaskerDashboard = () => {
                                                     <Zap className="w-3 h-3" /> Urgent
                                                 </span>
                                             </div>
-                                            <p className="text-xl font-extrabold text-gray-900">{job.salary?.includes('$') ? job.salary.replace('$', '₹') : job.salary || "Commensurate"}</p>
+                                            <p className="text-xl font-extrabold text-gray-900">{job.salary?.includes('$') ? job.salary.replaceAll('$', '₹') : (job.salary?.includes('₹') ? job.salary : (job.salary ? `₹${job.salary}` : 'Commensurate'))}</p>
                                         </div>
                                     </div>
 
                                     <div className="flex justify-end mt-4 pt-4 border-t border-gray-100">
-                                        <button className="text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1">
+                                        <Link to={`/project/${job._id}`} className="text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1">
                                             View Details <ArrowRight className="w-4 h-4" />
-                                        </button>
+                                        </Link>
                                     </div>
-                                </motion.div>
+                                </div>
                             ))
                         ) : (
                             <div className="text-center py-10 bg-white rounded-xl border border-gray-200">
@@ -213,8 +251,8 @@ const TaskerDashboard = () => {
                     </Link>
 
                     <Link to="/earnings" className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow text-center group">
-                        <div className="w-12 h-12 bg-green-50 text-green-600 rounded-xl mx-auto flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                            <DollarSign className="w-6 h-6" />
+                        <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl mx-auto flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                            <IndianRupee className="w-6 h-6" />
                         </div>
                         <h3 className="font-bold text-gray-900">Earnings</h3>
                         <p className="text-xs text-gray-500 mt-1">Manage your wallet</p>

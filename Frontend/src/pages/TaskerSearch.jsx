@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import GlassContainer from '../components/premium/GlassContainer';
@@ -16,12 +17,13 @@ const TaskerSearch = () => {
     const searchJobs = async () => {
         try {
             const params = new URLSearchParams(filters);
-            const res = await axios.get(`http://localhost:5000/api/search/jobs?${params}`);
+            const res = await axios.get(`/api/search/jobs?${params}`);
             setJobs(res.data);
         } catch (error) {
             console.error(error);
         }
     };
+
 
     useEffect(() => {
         searchJobs();
@@ -72,13 +74,13 @@ const TaskerSearch = () => {
                             <p className="text-blue-600 font-medium mb-2">{job.company}</p>
                             <div className="text-sm text-gray-500 mb-4 space-y-1">
                                 <p>📍 {job.location}</p>
-                                <p>💰 {job.salary}</p>
+                                <p>💰 {job.salary?.includes('$') ? job.salary.replaceAll('$', '₹') : (job.salary?.includes('₹') ? job.salary : (job.salary ? `₹${job.salary}` : 'N/A'))}</p>
                             </div>
                             <p className="text-gray-600 text-sm mb-4 line-clamp-3">{job.description}</p>
                             {user?.role === 'job_seeker' ? (
-                                <button className="w-full py-2 bg-blue-100 text-blue-700 font-semibold rounded-lg hover:bg-blue-200 transition-colors">
+                                <Link to={`/project/${job._id}`} className="block w-full text-center py-2 bg-blue-100 text-blue-700 font-semibold rounded-lg hover:bg-blue-200 transition-colors">
                                     View Details & Apply
-                                </button>
+                                </Link>
                             ) : !user ? (
                                 <button className="w-full py-2 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors">
                                     Login to Apply

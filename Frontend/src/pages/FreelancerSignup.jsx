@@ -250,11 +250,11 @@ const FreelancerSignup = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-bold text-gray-700">Hourly Rate (USD)</label>
+                            <label className="block text-sm font-bold text-gray-700">Hourly Rate (₹)</label>
                             <input
                                 name="hourlyRate"
                                 type="number"
-                                placeholder="10"
+                                placeholder="500"
                                 required
                                 className="mt-1 block w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
                                 value={formData.hourlyRate}
@@ -364,7 +364,7 @@ const FreelancerSignup = () => {
                             <input
                                 name="bankName"
                                 type="text"
-                                placeholder="e.g., Chase, Wells Fargo"
+                                placeholder="e.g., HDFC, SBI, ICICI"
                                 className="mt-1 block w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 bg-gray-50"
                                 value={formData.bankName}
                                 onChange={onChange}

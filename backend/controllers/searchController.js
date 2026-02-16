@@ -50,7 +50,14 @@ const searchJobs = async (req, res) => {
         // For MVP, we'll keep regex or basic check if salary field was numeric. 
         // Since salary is String in schema, we filter by regex search for now.
 
-        const jobs = await Job.find(query).populate('employer', 'name company rating');
+        // Default to open jobs unless specified otherwise (or handled by frontend filters later)
+        if (!query.jobStatus) {
+            query.jobStatus = 'open';
+        }
+
+        const jobs = await Job.find(query)
+            .populate('employer', 'name company rating')
+            .sort({ createdAt: -1 }); // Newest first
         res.status(200).json(jobs);
     } catch (error) {
         res.status(500).json({ message: error.message });

@@ -379,7 +379,7 @@ const OrganizerSignup = () => {
                                 <input
                                     name="city"
                                     type="text"
-                                    placeholder="New York"
+                                    placeholder="Mumbai"
                                     className="mt-1 block w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
                                     value={formData.city}
                                     onChange={onChange}
@@ -390,7 +390,7 @@ const OrganizerSignup = () => {
                                 <input
                                     name="state"
                                     type="text"
-                                    placeholder="NY"
+                                    placeholder="Maharashtra"
                                     className="mt-1 block w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
                                     value={formData.state}
                                     onChange={onChange}
@@ -403,7 +403,7 @@ const OrganizerSignup = () => {
                                 <input
                                     name="zip"
                                     type="text"
-                                    placeholder="10001"
+                                    placeholder="400001"
                                     className="mt-1 block w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
                                     value={formData.zip}
                                     onChange={onChange}

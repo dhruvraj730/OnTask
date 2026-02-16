@@ -117,7 +117,7 @@ const withdrawFunds = async (req, res) => {
         user.walletBalance = 0;
         await user.save();
 
-        res.json({ message: `Successfully withdrew $${amount}`, isActive: true });
+        res.json({ message: `Successfully withdrew ₹${amount}`, isActive: true });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

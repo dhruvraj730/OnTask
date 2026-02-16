@@ -9,11 +9,17 @@ const port = process.env.PORT || 5000;
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(express.urlencoded({ extended: false }));
+app.set('etag', false); // Disable ETag to prevent 304 Not Modified
 app.use(cors({
     origin: '*', // Allow all origins for demo
     credentials: true
 }));
+
+// Request Logger Middleware
+app.use((req, res, next) => {
+    console.log(`[REQUEST] ${req.method} ${req.url}`);
+    next();
+});
 
 // Connect to Database
 const connectDB = async () => {
