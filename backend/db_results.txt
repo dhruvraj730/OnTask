@@ -1,0 +1,52 @@
+Connected to MongoDB
+Found 5 latest jobs
+
+--- Job 1 ---
+Title: Business Analyst
+ID: 699f2f53a7769f88cf7827e1
+Company: FX31
+StartDate: undefined
+Duration: {}
+EndDate: undefined
+CreatedAt: Wed Feb 25 2026 22:50:19 GMT+0530 (India Standard Time)
+timeBasedProgress (virtual): 0
+
+--- Job 2 ---
+Title: Cricket Trainer
+ID: 699f2e04a7769f88cf7827c3
+Company: Lounge
+StartDate: undefined
+Duration: {}
+EndDate: undefined
+CreatedAt: Wed Feb 25 2026 22:44:44 GMT+0530 (India Standard Time)
+timeBasedProgress (virtual): 0
+
+--- Job 3 ---
+Title: Gym Trainer
+ID: 699f2db1a7769f88cf78279f
+Company: Gym Lounge
+StartDate: undefined
+Duration: {}
+EndDate: undefined
+CreatedAt: Wed Feb 25 2026 22:43:21 GMT+0530 (India Standard Time)
+timeBasedProgress (virtual): 0
+
+--- Job 4 ---
+Title: Event Supervisor
+ID: 699f29a6a7769f88cf7826eb
+Company: Karnavati University
+StartDate: undefined
+Duration: {}
+EndDate: undefined
+CreatedAt: Wed Feb 25 2026 22:26:06 GMT+0530 (India Standard Time)
+timeBasedProgress (virtual): 0
+
+--- Job 5 ---
+Title: Logo Design
+ID: 699f20145fd63781cf02fd49
+Company: Tech Solutions Inc.
+StartDate: Thu Feb 05 2026 21:45:16 GMT+0530 (India Standard Time)
+Duration: {"value":2,"unit":"days"}
+EndDate: undefined
+CreatedAt: Wed Feb 25 2026 21:45:16 GMT+0530 (India Standard Time)
+timeBasedProgress (virtual): 0

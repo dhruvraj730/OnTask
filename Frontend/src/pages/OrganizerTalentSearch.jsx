@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import GlassContainer from '../components/premium/GlassContainer';
 import AnimatedCard from '../components/premium/AnimatedCard';
@@ -14,7 +15,7 @@ const OrganizerTalentSearch = () => {
     const searchTaskers = async () => {
         try {
             const params = new URLSearchParams(filters);
-            const res = await axios.get(`http://localhost:5000/api/search/taskers?${params}`);
+            const res = await axios.get(`/api/search/taskers?${params}`);
             setTaskers(res.data);
         } catch (error) {
             console.error(error);
@@ -87,9 +88,11 @@ const OrganizerTalentSearch = () => {
                                 ))}
                             </div>
                             <p className="text-gray-600 text-sm mb-4 line-clamp-2">{tasker.bio || "No bio available."}</p>
-                            <button className="w-full py-2 bg-purple-100 text-purple-700 font-semibold rounded-lg hover:bg-purple-200 transition-colors">
-                                View Profile
-                            </button>
+                            <Link to={`/profile/${tasker._id}`} className="w-full">
+                                <button className="w-full py-2 bg-purple-100 text-purple-700 font-semibold rounded-lg hover:bg-purple-200 transition-colors">
+                                    View Profile
+                                </button>
+                            </Link>
                         </AnimatedCard>
                     ))}
                     {taskers.length === 0 && <p className="text-gray-500 col-span-full text-center">No talent found matching your criteria.</p>}

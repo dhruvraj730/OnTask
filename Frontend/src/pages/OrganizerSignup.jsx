@@ -95,7 +95,7 @@ const OrganizerSignup = () => {
         setLoading(true);
         try {
             // Register as 'employer' (Organizer)
-            await register(formData.name, formData.email, formData.password, 'employer', '');
+            await register(formData.name, formData.email, formData.password, 'employer');
             setStep(2);
         } catch (error) {
             console.error(error);

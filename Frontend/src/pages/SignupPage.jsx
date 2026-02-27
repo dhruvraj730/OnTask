@@ -10,10 +10,9 @@ const SignupPage = () => {
         name: '',
         email: '',
         password: '',
-        country: '',
         role: roleParam
     });
-    const { name, email, password, country, role } = formData;
+    const { name, email, password, role } = formData;
 
     const { register, user } = useContext(AuthContext);
     const navigate = useNavigate();
@@ -32,7 +31,7 @@ const SignupPage = () => {
     const onSubmit = async (e) => {
         e.preventDefault();
         try {
-            const userData = await register(name, email, password, role, country);
+            const userData = await register(name, email, password, role);
             if (userData.role === 'employer') navigate('/pro/dashboard');
             else if (userData.role === 'job_seeker') navigate('/tasker/dashboard');
             else navigate('/');
@@ -101,7 +100,7 @@ const SignupPage = () => {
                 </div>
 
                 <form className="mt-8 space-y-6" onSubmit={onSubmit}>
-                    <div className="rounded-md shadow-sm -space-y-px">
+                    {/*<div className="rounded-md shadow-sm -space-y-px mb-6">
                         <div>
                             <input
                                 name="name"
@@ -126,19 +125,6 @@ const SignupPage = () => {
                                 onChange={onChange}
                                 autoComplete="email"
                                 id="email"
-                            />
-                        </div>
-                        <div>
-                            <input
-                                name="country"
-                                type="text"
-                                required
-                                className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                                placeholder="Country"
-                                value={country}
-                                onChange={onChange}
-                                autoComplete="country-name"
-                                id="country"
                             />
                         </div>
                         <div>
@@ -169,7 +155,7 @@ const SignupPage = () => {
                         >
                             Later (Go to Home)
                         </Link>
-                    </div>
+                    </div>*/}
                 </form>
                 <div className="text-center">
                     <p className="text-sm text-gray-600">

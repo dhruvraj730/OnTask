@@ -8,7 +8,9 @@ import AIChatbot from '../components/AIChatbot';
 const EmployerDashboard = () => {
     const { user } = useContext(AuthContext);
     const [jobs, setJobs] = useState([]);
+    const [talent, setTalent] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [talentLoading, setTalentLoading] = useState(true);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -31,48 +33,21 @@ const EmployerDashboard = () => {
                 setLoading(false);
             }
         };
-        fetchJobs();
-    }, [user, navigate]);
 
-    // Mock Freelancers Data
-    const availableFreelancers = [
-        {
-            id: 1,
-            name: "Alex Johnson",
-            role: "React Development",
-            rating: 4.9,
-            jobCount: 24,
-            hourlyRate: 75,
-            status: "Available"
-        },
-        {
-            id: 2,
-            name: "Sarah Design",
-            role: "UI/UX Design",
-            rating: 4.8,
-            jobCount: 18,
-            hourlyRate: 65,
-            status: "Available"
-        },
-        {
-            id: 3,
-            name: "Mike Analytics",
-            role: "Data Analytics",
-            rating: 4.7,
-            jobCount: 32,
-            hourlyRate: 55,
-            status: "Busy"
-        },
-        {
-            id: 4,
-            name: "Emily Frontend",
-            role: "Frontend Development",
-            rating: 4.9,
-            jobCount: 28,
-            hourlyRate: 60,
-            status: "Available"
-        }
-    ];
+        const fetchTalent = async () => {
+            try {
+                const res = await axios.get('/api/search/taskers');
+                setTalent(res.data.slice(0, 4)); // Show top 4
+            } catch (err) {
+                console.error("Error fetching talent:", err);
+            } finally {
+                setTalentLoading(false);
+            }
+        };
+
+        fetchJobs();
+        fetchTalent();
+    }, [user, navigate]);
 
     return (
         <div className="min-h-screen bg-gray-50 font-sans pb-20">
@@ -100,13 +75,13 @@ const EmployerDashboard = () => {
                         <div className="hidden md:flex justify-center items-center relative">
                             <div className="bg-blue-500/30 backdrop-blur-sm p-8 rounded-2xl border border-blue-400/30 flex flex-col items-center">
                                 <div className="flex -space-x-4 mb-4">
-                                    {[1, 2, 3].map(i => (
-                                        <div key={i} className="w-12 h-12 rounded-full bg-gray-300 border-2 border-blue-600 flex items-center justify-center text-gray-700 bg-white shadow-sm font-bold">
-                                            {i === 1 ? 'A' : i === 2 ? 'S' : 'M'}
+                                    {['A', 'S', 'M'].map(char => (
+                                        <div key={char} className="w-12 h-12 rounded-full bg-gray-300 border-2 border-blue-600 flex items-center justify-center text-gray-700 bg-white shadow-sm font-bold">
+                                            {char}
                                         </div>
                                     ))}
                                 </div>
-                                <p className="font-bold text-lg">5000+ Top Freelancers</p>
+                                <p className="font-bold text-lg">Verified Professionals</p>
                             </div>
                         </div>
                     </div>
@@ -130,39 +105,47 @@ const EmployerDashboard = () => {
                         <Link to="/find-talent" className="text-sm font-semibold text-gray-500 hover:text-blue-600">View All Talent</Link>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {availableFreelancers.map((freelancer) => (
-                            <div key={freelancer.id} className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                                <div className="space-y-4">
-                                    <div>
-                                        <h4 className="font-bold text-lg text-gray-900">{freelancer.name}</h4>
-                                        <p className="text-sm text-gray-500">{freelancer.role}</p>
-                                    </div>
-
-                                    <div className="flex items-center gap-4 text-sm">
-                                        <div className="flex items-center text-yellow-500 font-bold">
-                                            <Star className="w-4 h-4 fill-current mr-1" />
-                                            {freelancer.rating}
-                                            <span className="text-gray-400 font-normal ml-1">({freelancer.jobCount} jobs)</span>
+                        {talentLoading ? (
+                            <p>Loading talent...</p>
+                        ) : talent.length > 0 ? (
+                            talent.map((freelancer) => (
+                                <div key={freelancer._id} className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                                    <div className="space-y-4">
+                                        <div>
+                                            <h4 className="font-bold text-lg text-gray-900">{freelancer.name}</h4>
+                                            <p className="text-sm text-gray-500">{freelancer.professionalTitle || "Freelancer"}</p>
                                         </div>
-                                    </div>
 
-                                    <div className="flex items-center text-gray-700 font-medium">
-                                        <Clock className="w-4 h-4 mr-2" />
-                                        ₹{freelancer.hourlyRate}/hr
-                                    </div>
+                                        <div className="flex items-center gap-4 text-sm">
+                                            <div className="flex items-center text-yellow-500 font-bold">
+                                                <Star className="w-4 h-4 fill-current mr-1" />
+                                                {freelancer.rating || 0}
+                                                <span className="text-gray-400 font-normal ml-1">({freelancer.experience || 0} yrs exp)</span>
+                                            </div>
+                                        </div>
 
-                                    <div>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${freelancer.status === 'Available' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                            {freelancer.status}
-                                        </span>
-                                    </div>
+                                        <div className="flex items-center text-gray-700 font-medium">
+                                            <Clock className="w-4 h-4 mr-2" />
+                                            ₹{freelancer.hourlyRate}/hr
+                                        </div>
 
-                                    <button className="w-full py-2 bg-blue-900 text-white rounded-lg font-bold text-sm hover:bg-blue-800 transition-colors">
-                                        View Profile
-                                    </button>
+                                        <div>
+                                            <span className={`px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700`}>
+                                                Available
+                                            </span>
+                                        </div>
+
+                                        <Link to={`/profile/${freelancer._id}`} className="block">
+                                            <button className="w-full py-2 bg-blue-900 text-white rounded-lg font-bold text-sm hover:bg-blue-800 transition-colors">
+                                                View Profile
+                                            </button>
+                                        </Link>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))
+                        ) : (
+                            <p className="text-gray-500 col-span-4 text-center py-8">No talent profiles found yet.</p>
+                        )}
                     </div>
                 </div>
 
@@ -198,27 +181,46 @@ const EmployerDashboard = () => {
                                     <h4 className="font-bold text-gray-900 mb-2 truncate group-hover:text-blue-600 transition-colors">{job.title}</h4>
                                     <p className="text-gray-500 text-sm mb-4">
                                         Assigned to: <span className="font-semibold text-gray-900">
-                                            {job.hiredTasker?.name || "In Progress"}
+                                            {job.hiredTasker?.name || (job.jobStatus === 'open' ? "Searching..." : "Pending...")}
                                         </span>
                                     </p>
 
-                                    <div className="mb-4">
-                                        <div className="flex justify-between text-xs text-gray-400 mb-1">
-                                            <span>Progress</span>
-                                            <span>{job.progress || 45}%</span>
+                                    <div className="mb-4 space-y-3">
+                                        <div>
+                                            <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-tight">
+                                                <span>Verified Progress</span>
+                                                <span className="text-emerald-600 font-bold">{job.progress || 0}%</span>
+                                            </div>
+                                            <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                                <div
+                                                    className="bg-gradient-to-r from-emerald-500 to-teal-600 h-2 rounded-full transition-all duration-500"
+                                                    style={{ width: `${job.progress || 0}%` }}
+                                                ></div>
+                                            </div>
                                         </div>
-                                        <div className="w-full bg-gray-100 rounded-full h-2">
-                                            <div
-                                                className="bg-blue-600 h-2 rounded-full"
-                                                style={{ width: `${job.progress || 45}%` }}
-                                            ></div>
+                                        <div>
+                                            <div className="flex justify-between text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-widest font-mono">
+                                                <span>Schedule Progress</span>
+                                                <span className="text-blue-500">{job.timeBasedProgress || 0}%</span>
+                                            </div>
+                                            <div className="w-full bg-gray-100 rounded-full h-1 overflow-hidden">
+                                                <div
+                                                    className="bg-blue-400 h-1 rounded-full transition-all duration-500"
+                                                    style={{ width: `${job.timeBasedProgress || 0}%` }}
+                                                ></div>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div className="flex justify-start">
-                                        <span className="px-3 py-1 bg-red-50 text-red-600 text-xs font-bold rounded-md">
-                                            Immediate
+                                    <div className="flex justify-between items-center">
+                                        <span className="px-3 py-1 bg-red-50 text-red-600 text-[10px] font-bold rounded-md">
+                                            {job.startDate ? `Starts ${new Date(job.startDate).toLocaleDateString()}` : "Immediate"}
                                         </span>
+                                        {job.endDate && (
+                                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
+                                                Due {new Date(job.endDate).toLocaleDateString()}
+                                            </span>
+                                        )}
                                     </div>
                                 </Link>
                             ))

@@ -18,6 +18,9 @@ app.use(cors({
 // Request Logger Middleware
 app.use((req, res, next) => {
     console.log(`[REQUEST] ${req.method} ${req.url}`);
+    if (req.method === 'POST' || req.method === 'PUT') {
+        console.log('[BODY]', JSON.stringify(req.body, null, 2));
+    }
     next();
 });
 

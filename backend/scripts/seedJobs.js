@@ -69,7 +69,9 @@ const seedData = async () => {
             description: 'We are looking for an experienced React developer to join our team. Must have 5+ years of experience.',
             salary: '₹80k - ₹100k',
             jobStatus: 'open',
-            skills: ['React', 'Redux', 'TypeScript']
+            skills: ['React', 'Redux', 'TypeScript'],
+            startDate: new Date(Date.now() + 86400000 * 7),
+            duration: { value: 3, unit: 'months' }
         });
 
         await Job.create({
@@ -80,7 +82,9 @@ const seedData = async () => {
             description: 'Need a backend expert to handle high traffic API.',
             salary: '₹70k - ₹90k',
             jobStatus: 'open',
-            skills: ['Node.js', 'MongoDB', 'Express']
+            skills: ['Node.js', 'MongoDB', 'Express'],
+            startDate: new Date(Date.now() + 86400000 * 14),
+            duration: { value: 6, unit: 'months' }
         });
 
         await Job.create({
@@ -91,7 +95,9 @@ const seedData = async () => {
             description: 'Design beautiful interfaces for our mobile apps.',
             salary: '₹60k - ₹80k',
             jobStatus: 'open',
-            skills: ['Figma', 'Adobe XD']
+            skills: ['Figma', 'Adobe XD'],
+            startDate: new Date(Date.now() + 86400000 * 3),
+            duration: { value: 2, unit: 'weeks' }
         });
 
 
@@ -110,6 +116,8 @@ const seedData = async () => {
                 status: 'hired',
                 appliedAt: new Date()
             }],
+            startDate: new Date(Date.now() - 86400000 * 5),
+            duration: { value: 1, unit: 'months' },
             progressUpdates: [
                 { description: 'Initial setup completed', date: new Date(Date.now() - 86400000 * 2) },
                 { description: 'Database schema designed', date: new Date(Date.now() - 86400000) }
@@ -130,7 +138,9 @@ const seedData = async () => {
                 applicant: jobSeeker._id,
                 status: 'hired',
                 appliedAt: new Date(Date.now() - 86400000 * 10)
-            }]
+            }],
+            startDate: new Date(Date.now() - 86400000 * 20),
+            duration: { value: 2, unit: 'days' }
         });
 
         console.log('Jobs Created');

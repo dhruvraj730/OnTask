@@ -1,9 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Search } from 'lucide-react';
 
 export function HeroSection() {
+    const [searchQuery, setSearchQuery] = useState('');
+    const navigate = useNavigate();
+
+    const handleSearch = (e) => {
+        if (e) e.preventDefault();
+        navigate(`/find-jobs?title=${encodeURIComponent(searchQuery)}`);
+    };
+
+    const handleCategoryClick = (category) => {
+        navigate(`/find-jobs?title=${encodeURIComponent(category)}`);
+    };
+
     return (
         <section className="relative bg-gradient-to-b from-blue-50/50 to-white py-16 md:py-24 overflow-hidden">
             <div className="max-w-7xl mx-auto px-4 relative z-10">
@@ -17,19 +30,25 @@ export function HeroSection() {
                             Forget the old rules. You can have the best people. Right now. Right here.
                         </p>
                         <div className="flex flex-col gap-4">
-                            <div className="flex gap-2 max-w-md bg-white p-2 rounded-full shadow-lg border border-gray-100">
+                            <form onSubmit={handleSearch} className="flex gap-2 max-w-md bg-white p-2 rounded-full shadow-lg border border-gray-100">
                                 <Input
                                     placeholder="Search for skills, services..."
                                     className="flex-1 border-none shadow-none focus-visible:ring-0 text-base py-3"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
                                 />
-                                <Button className="rounded-full px-6 h-12 bg-blue-600 hover:bg-blue-700">
+                                <Button type="submit" className="rounded-full px-6 h-12 bg-blue-600 hover:bg-blue-700">
                                     <Search className="w-5 h-5" />
                                 </Button>
-                            </div>
+                            </form>
                             <div className="flex gap-3 flex-wrap mt-4">
                                 <span className="text-sm text-gray-500 py-1">Popular:</span>
                                 {['Web Design', 'React', 'Content Writing', 'Marketing'].map((tag) => (
-                                    <button key={tag} className="text-sm border rounded-full px-3 py-1 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors">
+                                    <button
+                                        key={tag}
+                                        onClick={() => handleCategoryClick(tag)}
+                                        className="text-sm border rounded-full px-3 py-1 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                                    >
                                         {tag}
                                     </button>
                                 ))}

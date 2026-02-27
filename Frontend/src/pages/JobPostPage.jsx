@@ -15,10 +15,13 @@ const JobPostPage = () => {
         location: '',
         salary: '',
         description: '',
+        startDate: '',
+        durationValue: '',
+        durationUnit: 'days',
         screeningQuestions: ['']
     });
 
-    const { title, company, location, description, salary, screeningQuestions } = formData;
+    const { title, company, location, description, salary, startDate, durationValue, durationUnit, screeningQuestions } = formData;
 
     // AI Generation Logic (Simulated with Extraction)
     const handleAiGenerate = async () => {
@@ -32,8 +35,13 @@ const JobPostPage = () => {
 
             // 1. Extract Salary (looking for $ or 'k')
             let extractedSalary = 'Competitive';
+            let numericBudget = 0;
             const moneyMatch = aiPrompt.details.match(/(₹[\d,]+(\.\d{2})?(\/hr|\/yr)?)|(\$[\d,]+(\.\d{2})?(\/hr|\/yr)?)|(\d+k)/i);
-            if (moneyMatch) extractedSalary = moneyMatch[0].replaceAll('$', '₹');
+            if (moneyMatch) {
+                extractedSalary = moneyMatch[0].replaceAll('$', '₹');
+                const numericMatch = extractedSalary.replace(/,/g, '').match(/\d+/);
+                if (numericMatch) numericBudget = Number(numericMatch[0]);
+            }
 
             // 2. Extract Location (looking for 'in [City]')
             let extractedLocation = 'Remote';
@@ -48,12 +56,12 @@ const JobPostPage = () => {
             
 About the Role:
 We need someone who can handle: ${aiPrompt.details || 'standard industry tasks'}. 
-
+ 
 Requirements:
 - Proven experience as a ${aiPrompt.role}.
 - Dedication to quality results.
 - Ability to work ${extractedLocation === 'Remote' ? 'remotely' : `on-site in ${extractedLocation}`}.
-
+ 
 Compensation:
 - ${extractedSalary}
 ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
@@ -63,7 +71,11 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
                 title: `${aiPrompt.role}`,
                 location: extractedLocation,
                 salary: extractedSalary,
+                budget: numericBudget,
                 description: generatedDescription,
+                startDate: new Date().toISOString().split('T')[0], // Default to today
+                durationValue: '1',
+                durationUnit: 'days',
                 screeningQuestions: [
                     `Do you have experience as a ${aiPrompt.role}?`,
                     `Are you comfortable working for ${extractedSalary}?`,
@@ -92,15 +104,27 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
     const onSubmit = async (e) => {
         e.preventDefault();
         try {
-            await axios.post('/api/jobs', formData);
+            const validQuestions = screeningQuestions.filter(q => q.trim() !== '');
+            const payload = {
+                ...formData,
+                screeningQuestions: validQuestions,
+                duration: {
+                    value: Number(durationValue),
+                    unit: durationUnit
+                }
+            };
+            await axios.post('/api/jobs', payload);
             navigate('/pro/dashboard');
         } catch (err) {
-            if (err.response && err.response.status === 403) {
+            if (err.response && err.response.status === 401) {
+                alert("Your session has expired. Please log in again.");
+                navigate('/login');
+            } else if (err.response && err.response.status === 403) {
                 alert("You need an active subscription to post jobs!");
                 navigate('/pricing');
             } else {
                 console.error(err);
-                alert('Failed to post job');
+                alert(err.response?.data?.message || 'Failed to post job');
             }
         }
     };
@@ -205,9 +229,55 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
                                     <label className="block text-sm font-bold text-gray-700 mb-2">Location</label>
                                     <input type="text" name="location" required value={location} onChange={onChange} className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. New York, Remote" />
                                 </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2">Salary Text</label>
+                                        <input type="text" name="salary" required value={salary} onChange={onChange} className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. ₹500/hr" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2">Numeric Budget (₹)</label>
+                                        <input type="number" name="budget" value={formData.budget || ''} onChange={onChange} className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Total (e.g. 5000)" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">Salary / Rate</label>
-                                    <input type="text" name="salary" required value={salary} onChange={onChange} className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. ₹500/hr or ₹60k/yr" />
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">Starting Date</label>
+                                    <input
+                                        type="date"
+                                        name="startDate"
+                                        required
+                                        value={startDate}
+                                        onChange={onChange}
+                                        className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">Work Duration</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="number"
+                                            name="durationValue"
+                                            required
+                                            value={durationValue}
+                                            onChange={onChange}
+                                            className="block w-2/3 rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                            placeholder="Duration"
+                                            min="1"
+                                        />
+                                        <select
+                                            name="durationUnit"
+                                            value={durationUnit}
+                                            onChange={onChange}
+                                            className="block w-1/3 rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                        >
+                                            <option value="hours">Hours</option>
+                                            <option value="days">Days</option>
+                                            <option value="weeks">Weeks</option>
+                                            <option value="months">Months</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
 

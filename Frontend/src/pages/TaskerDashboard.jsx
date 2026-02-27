@@ -2,7 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthContext from '../context/AuthContext';
-import { Search, Briefcase, IndianRupee, User, Sparkles, ArrowRight, Zap, MapPin } from 'lucide-react';
+import { Search, Briefcase, IndianRupee, User, Sparkles, ArrowRight, Zap, MapPin, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import AIChatbot from '../components/AIChatbot';
 
@@ -115,8 +115,8 @@ const TaskerDashboard = () => {
                                 <div className="bg-orange-500 p-4 rounded-full mb-4 shadow-lg">
                                     <Briefcase className="w-8 h-8 text-white" />
                                 </div>
-                                <h3 className="text-3xl font-bold">50,000+</h3>
-                                <p className="text-emerald-100 text-sm">Active Projects</p>
+                                <h3 className="text-3xl font-bold">Limitless</h3>
+                                <p className="text-emerald-100 text-sm">Opportunities Await</p>
                             </motion.div>
                         </div>
                     </div>
@@ -205,22 +205,63 @@ const TaskerDashboard = () => {
                                         <div>
                                             <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{job.title}</h3>
                                             <div className="flex flex-wrap gap-2 mt-2">
-                                                {/* Tech Stack Tags Mockup */}
-                                                <span className="px-2 py-1 bg-blue-50 text-blue-600 text-xs font-semibold rounded-md">React</span>
-                                                <span className="px-2 py-1 bg-green-50 text-green-600 text-xs font-semibold rounded-md">Node.js</span>
                                                 <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-md flex items-center gap-1">
-                                                    <MapPin className="w-3 h-3" /> {job.location}
+                                                    <Clock className="w-3 h-3" /> {job.startDate ? new Date(job.startDate).toLocaleDateString() : 'Immediate'}
                                                 </span>
+                                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-md flex items-center gap-1">
+                                                    <Briefcase className="w-3 h-3" /> {job.duration ? `${job.duration.value} ${job.duration.unit}` : 'Flexible'}
+                                                </span>
+                                                {/* Skill Tags */}
+                                                {job.skills && job.skills.length > 0 ? (
+                                                    job.skills.map(skill => (
+                                                        <span key={skill} className="px-2 py-1 bg-blue-50 text-blue-600 text-xs font-semibold rounded-md">{skill}</span>
+                                                    ))
+                                                ) : (
+                                                    <span className="px-2 py-1 bg-blue-50 text-blue-600 text-xs font-semibold rounded-md flex items-center gap-1">
+                                                        <MapPin className="w-3 h-3" /> {job.location}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
 
                                         <div className="text-left sm:text-right">
                                             <div className="flex items-center gap-2 justify-start sm:justify-end mb-1">
+                                                {job.endDate && (
+                                                    <span className="px-2 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-full">
+                                                        Due {new Date(job.endDate).toLocaleDateString()}
+                                                    </span>
+                                                )}
                                                 <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded-full flex items-center gap-1">
                                                     <Zap className="w-3 h-3" /> Urgent
                                                 </span>
                                             </div>
                                             <p className="text-xl font-extrabold text-gray-900">{job.salary?.includes('$') ? job.salary.replaceAll('$', '₹') : (job.salary?.includes('₹') ? job.salary : (job.salary ? `₹${job.salary}` : 'Commensurate'))}</p>
+                                            <div className="mb-4 space-y-3">
+                                                <div>
+                                                    <div className="flex justify-between text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-tight">
+                                                        <span>Verified Progress</span>
+                                                        <span className="text-emerald-600">{job.progress || 0}%</span>
+                                                    </div>
+                                                    <div className="w-full bg-gray-100 rounded-full h-2 shadow-inner overflow-hidden">
+                                                        <div
+                                                            className="bg-gradient-to-r from-emerald-500 to-teal-600 h-2 rounded-full"
+                                                            style={{ width: `${job.progress || 0}%` }}
+                                                        ></div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="flex justify-between text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-widest font-mono">
+                                                        <span>Schedule</span>
+                                                        <span className="text-blue-500">{job.timeBasedProgress || 0}%</span>
+                                                    </div>
+                                                    <div className="w-full bg-gray-100 rounded-full h-1 shadow-inner overflow-hidden">
+                                                        <div
+                                                            className="bg-blue-400 h-1 rounded-full"
+                                                            style={{ width: `${job.timeBasedProgress || 0}%` }}
+                                                        ></div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 

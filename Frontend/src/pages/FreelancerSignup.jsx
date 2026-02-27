@@ -93,7 +93,7 @@ const FreelancerSignup = () => {
         setLoading(true);
         try {
             // Register as 'job_seeker' (Tasker)
-            await register(formData.name, formData.email, formData.password, 'job_seeker', '');
+            await register(formData.name, formData.email, formData.password, 'job_seeker');
             setStep(2);
         } catch (error) {
             console.error(error);
