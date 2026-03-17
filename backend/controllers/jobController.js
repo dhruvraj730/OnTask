@@ -100,7 +100,8 @@ const releasePayment = async (req, res) => {
             return res.status(404).json({ message: 'Job not found' });
         }
 
-        if (job.employer.toString() !== req.user.id) {
+        const employerId = (job.employer._id || job.employer).toString();
+        if (employerId !== req.user.id && employerId !== (req.user._id || '').toString()) {
             return res.status(403).json({ message: 'Only the employer can release payments' });
         }
 
@@ -203,7 +204,8 @@ const scheduleInterview = async (req, res) => {
             return res.status(404).json({ message: 'Job not found' });
         }
 
-        if (job.employer.toString() !== req.user.id) {
+        const employerId = (job.employer._id || job.employer).toString();
+        if (employerId !== req.user.id && employerId !== (req.user._id || '').toString()) {
             return res.status(403).json({ message: 'Not authorized' });
         }
 
@@ -236,7 +238,8 @@ const hireApplicant = async (req, res) => {
             return res.status(404).json({ message: 'Job not found' });
         }
 
-        if (job.employer.toString() !== req.user.id) {
+        const employerId = (job.employer._id || job.employer).toString();
+        if (employerId !== req.user.id && employerId !== (req.user._id || '').toString()) {
             return res.status(403).json({ message: 'Not authorized' });
         }
 
@@ -278,7 +281,8 @@ const rejectApplicant = async (req, res) => {
         }
 
         console.log(`[Reject] Job Employer: ${job.employer}, User: ${req.user.id}`);
-        if (job.employer.toString() !== req.user.id) {
+        const employerId = (job.employer._id || job.employer).toString();
+        if (employerId !== req.user.id && employerId !== (req.user._id || '').toString()) {
             console.log("[Reject] Not authorized");
             return res.status(403).json({ message: 'Not authorized' });
         }
@@ -312,7 +316,8 @@ const addJobUpdate = async (req, res) => {
             return res.status(404).json({ message: 'Job not found' });
         }
 
-        if (!job.hiredTasker || job.hiredTasker.toString() !== req.user.id) {
+        const taskerId = job.hiredTasker ? (job.hiredTasker._id || job.hiredTasker).toString() : null;
+        if (!taskerId || (taskerId !== req.user.id && taskerId !== (req.user._id || '').toString())) {
             return res.status(403).json({ message: 'Only the hired tasker can post updates' });
         }
 
@@ -324,7 +329,11 @@ const addJobUpdate = async (req, res) => {
         };
 
         if (progress !== undefined) {
-            newUpdate.proposedProgress = Number(progress);
+            const proposedProgress = Number(progress);
+            if (proposedProgress < (job.progress || 0)) {
+                return res.status(400).json({ message: `Proposed progress (${proposedProgress}%) cannot be less than the current verified progress (${job.progress || 0}%)` });
+            }
+            newUpdate.proposedProgress = proposedProgress;
         }
 
         job.progressUpdates.push(newUpdate);
@@ -349,7 +358,8 @@ const verifyJobUpdate = async (req, res) => {
             return res.status(404).json({ message: 'Job not found' });
         }
 
-        if (job.employer.toString() !== req.user.id) {
+        const employerId = (job.employer._id || job.employer).toString();
+        if (employerId !== req.user.id && employerId !== (req.user._id || '').toString()) {
             return res.status(403).json({ message: 'Only the employer can verify updates' });
         }
 
@@ -360,8 +370,6 @@ const verifyJobUpdate = async (req, res) => {
         }
 
         if (action === 'approve') {
-            update.status = 'approved';
-
             // Priority: overrideProgress > update.proposedProgress > job.progress
             let finalProgress = job.progress || 0;
             if (overrideProgress !== undefined) {
@@ -370,6 +378,11 @@ const verifyJobUpdate = async (req, res) => {
                 finalProgress = update.proposedProgress;
             }
 
+            if (finalProgress < (job.progress || 0)) {
+                return res.status(400).json({ message: `Verified progress (${finalProgress}%) cannot be less than the current verified progress (${job.progress || 0}%)` });
+            }
+            
+            update.status = 'approved';
             // Explicitly set verifiedProgress on the subdoc
             update.verifiedProgress = finalProgress;
 
@@ -425,7 +438,10 @@ const applyForJob = async (req, res) => {
 
         // Check if already applied
         const alreadyApplied = job.applications.find(
-            app => app.applicant.toString() === req.user.id
+            app => {
+                const appId = (app.applicant._id || app.applicant).toString();
+                return appId === req.user.id || appId === (req.user._id || '').toString();
+            }
         );
 
         if (alreadyApplied) {
@@ -466,7 +482,8 @@ const proposeNegotiation = async (req, res) => {
         const job = await Job.findById(req.params.id);
 
         if (!job) return res.status(404).json({ message: 'Job not found' });
-        if (job.employer.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
+        const employerId = (job.employer._id || job.employer).toString();
+        if (employerId !== req.user.id && employerId !== (req.user._id || '').toString()) return res.status(403).json({ message: 'Not authorized' });
 
         const application = job.applications.find(app => app.applicant.toString() === applicantId);
         if (!application) return res.status(404).json({ message: 'Application not found' });
@@ -491,7 +508,10 @@ const respondToNegotiation = async (req, res) => {
 
         if (!job) return res.status(404).json({ message: 'Job not found' });
 
-        const application = job.applications.find(app => app.applicant.toString() === req.user.id);
+        const application = job.applications.find(app => {
+            const appId = (app.applicant._id || app.applicant).toString();
+            return appId === req.user.id || appId === (req.user._id || '').toString();
+        });
         if (!application) return res.status(404).json({ message: 'Application not found' });
 
         if (application.offeredBudgetStatus !== 'pending') {

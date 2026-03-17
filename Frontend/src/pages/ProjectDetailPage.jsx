@@ -462,15 +462,15 @@ const ProjectDetailPage = () => {
                                     <label className="block text-sm font-bold text-gray-700 mb-2 font-sans">Progress ({newUpdate.progress}%)</label>
                                     <input
                                         type="range"
-                                        min="0"
+                                        min={project?.progress || 0}
                                         max="100"
                                         className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
                                         value={newUpdate.progress}
-                                        onChange={(e) => setNewUpdate({ ...newUpdate, progress: e.target.value })}
+                                        onChange={(e) => setNewUpdate({ ...newUpdate, progress: Math.max(project?.progress || 0, Number(e.target.value)) })}
                                     />
                                     <div className="flex justify-between text-xs text-gray-400 mt-1 uppercase font-bold">
-                                        <span>Started</span>
-                                        <span>Finished</span>
+                                        <span>{project?.progress || 0}% Current</span>
+                                        <span>100% Finished</span>
                                     </div>
                                 </div>
                             </div>
@@ -571,17 +571,17 @@ const ProjectDetailPage = () => {
                             {reviewModal.action === 'approve' ? (
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-2 font-sans">Verified Progress ({reviewModal.overriddenProgress}%)</label>
-                                    <p className="text-xs text-gray-500 mb-4 font-sans">You can adjust the progress percentage if you feel it differs from the submitted work.</p>
+                                    <p className="text-xs text-gray-500 mb-4 font-sans">You can adjust the progress percentage if you feel it differs from the submitted work, but it cannot be lower than the current {project?.progress || 0}%.</p>
                                     <input
                                         type="range"
-                                        min="0"
+                                        min={project?.progress || 0}
                                         max="100"
                                         className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                                         value={reviewModal.overriddenProgress}
-                                        onChange={(e) => setReviewModal({ ...reviewModal, overriddenProgress: Number(e.target.value) })}
+                                        onChange={(e) => setReviewModal({ ...reviewModal, overriddenProgress: Math.max(project?.progress || 0, Number(e.target.value)) })}
                                     />
                                     <div className="flex justify-between text-xs text-gray-400 mt-2 uppercase font-bold font-mono">
-                                        <span>0%</span>
+                                        <span>{project?.progress || 0}%</span>
                                         <span>100%</span>
                                     </div>
                                 </div>
