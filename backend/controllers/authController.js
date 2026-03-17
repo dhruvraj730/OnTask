@@ -1,8 +1,14 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const sendOtpMail = require('../emailVerify/sendOtpMail.js');
 
-// ... (Existing registerUser and loginUser) ...
+// JWT token generator
+function generateToken(id) {
+    return jwt.sign({ id }, process.env.JWT_SECRET, {
+        expiresIn: '30d',
+    });
+}
 
 // @desc    Register new user
 // @route   POST /api/auth/register
@@ -60,8 +66,6 @@ const registerUser = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
-
-// ... (keep loginUser and generateToken) ...
 
 // @desc    Update User Profile
 // @route   PUT /api/auth/profile
@@ -157,15 +161,107 @@ const loginUser = async (req, res) => {
     }
 };
 
-// Generate JWT
-const generateToken = (id) => {
-    return jwt.sign({ id }, process.env.JWT_SECRET, {
-        expiresIn: '30d',
-    });
+const forgotPassword = async (req, res) => {
+    try{
+        const {email} = req.body;
+        const user = await User.findOne({email});
+
+        if(!user){
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiry = new Date(Date.now() + 10 * 60 * 1000);
+
+        user.otp = otp;
+        user.otpExpiry = expiry;
+        await user.save();
+        await sendOtpMail(email, otp);
+        res.json({ success: true, message: 'OTP sent to your email' });
+
+    }
+    catch(error){
+        res.status(500).json({ success: false,  message: error.message });
+    }
+}
+
+const verifyOtp = async (req, res) => {
+    const {otp} = req.body;
+    const email = req.params.email;
+
+    if(!otp){
+        return res.status(400).json({ success: false, message: 'OTP is required' });
+    }
+
+    try{
+        const user = await User.findOne({email});
+        if(!user){
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        if(!user.otp || !user.otpExpiry){
+            return res.status(400).json({ success: false, message: 'OTP not generated or already verified' });
+        }
+        if (user.otpExpiry < new Date()){
+            return res.status(400).json({ success: false, message: 'OTP has expired. Please request a new one.' });
+        }
+        if(user.otp !== otp){
+            return res.status(400).json({ success: false, message: 'Invalid OTP' });
+        }
+        user.otp = '';
+        user.otpExpiry = null;
+        await user.save();
+        res.json({ success: true, message: 'OTP verified successfully' });
+    }
+    catch(error){
+        res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+const changePassword = async (req, res) => {
+    const { newPassword, confirmPassword } = req.body;
+    const email = req.params.email;
+
+    if (!newPassword || !confirmPassword) {
+        return res.status(400).json({ success: false, message: 'New password and confirm password are required' });
+    }
+    if (newPassword !== confirmPassword) {
+        return res.status(400).json({ success: false, message: 'Passwords do not match' });
+    }
+
+    try{
+        const user = await User.findOne({email});
+        if(!user){
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        user.password = await bcrypt.hash(newPassword, 10);
+        await user.save();
+        res.json({ success: true, message: 'Password changed successfully' });
+    }
+    catch(error){
+        res.status(500).json({ success: false, message: error.message });
+
+    }
+}
+
+// @desc    Get User Profile
+// @route   GET /api/auth/profile
+// @access  Private
+const getUserProfile = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('-password');
+        res.json(user);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 };
+
+
 
 module.exports = {
     registerUser,
     loginUser,
-    updateUserProfile
+    getUserProfile,
+    updateUserProfile,
+    forgotPassword,
+    verifyOtp,
+    changePassword
 };

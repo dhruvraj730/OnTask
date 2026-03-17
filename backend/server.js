@@ -2,6 +2,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv').config();
 const cors = require('cors');
+const passport = require('passport');
+require('./config/passport.js');  
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -43,15 +45,16 @@ if (process.env.MONGO_URI) {
 }
 
 // Routes
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/jobs', require('./routes/jobRoutes'));
-app.use('/api/search', require('./routes/searchRoutes'));
-app.use('/api/messages', require('./routes/messageRoutes'));
-app.use('/api/payment', require('./routes/paymentRoutes'));
-app.use('/api/work', require('./routes/workRoutes'));
-app.use('/api/applications', require('./routes/applicationRoutes'));
-app.use('/api/wallet', require('./routes/walletRoutes'));
-app.use('/api/users', require('./routes/userRoutes'));
+app.use(passport.initialize());
+app.use('/api/auth', require('./routes/authRoutes.js'));
+app.use('/api/jobs', require('./routes/jobRoutes.js'));
+app.use('/api/search', require('./routes/searchRoutes.js'));
+app.use('/api/messages', require('./routes/messageRoutes.js'));
+app.use('/api/payment', require('./routes/paymentRoutes.js'));
+app.use('/api/work', require('./routes/workRoutes.js'));
+app.use('/api/applications', require('./routes/applicationRoutes.js'));
+app.use('/api/wallet', require('./routes/walletRoutes.js'));
+app.use('/api/users', require('./routes/userRoutes.js'));
 
 app.get('/', (req, res) => res.send('OnTask Backend is running'));
 

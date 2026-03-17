@@ -161,6 +161,12 @@ const jobSchema = mongoose.Schema({
         default: 0,
         min: 0,
         max: 100
+    },
+    verifiedProgress: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 100
     }
 }, {
     timestamps: true

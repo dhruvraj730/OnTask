@@ -11,8 +11,26 @@ const userSchema = mongoose.Schema({
         unique: true
     },
     password: {
+    type: String,
+    required: function() { return !this.googleId; }
+    },
+    googleId: {
+        type: String
+    },
+    avatar: {
+        type: String
+    },
+    token: {
         type: String,
-        required: [true, 'Please add a password']
+        default: ''
+    },
+    otp: {
+        type: String,
+        default: ''
+    },
+    otpExpiry: {
+        type: Date,
+        default: ''
     },
     country: {
         type: String,

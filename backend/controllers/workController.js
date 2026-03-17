@@ -33,7 +33,7 @@ const hireTasker = async (req, res) => {
 // @access  Private (Tasker)
 const addProgress = async (req, res) => {
     try {
-        const { imageUrl, description } = req.body;
+        const { imageUrl, description, proposedProgress } = req.body;
         const job = await Job.findById(req.params.jobId);
 
         if (!job) return res.status(404).json({ message: 'Job not found' });
@@ -41,8 +41,68 @@ const addProgress = async (req, res) => {
             return res.status(401).json({ message: 'Not authorized' });
         }
 
-        job.progressUpdates.push({ imageUrl, description });
+        // Enforce strictly forward progress
+        if (proposedProgress <= job.verifiedProgress) {
+            return res.status(400).json({ message: `Progress must be greater than current verified progress (${job.verifiedProgress}%)` });
+        }
+
+        job.progressUpdates.push({ imageUrl, description, proposedProgress });
         job.jobStatus = 'in_progress';
+        await job.save();
+
+        res.json(job);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Approve progress update
+// @route   PUT /api/work/:jobId/progress/:updateId/approve
+// @access  Private (Employer)
+const approveProgress = async (req, res) => {
+    try {
+        const job = await Job.findById(req.params.jobId);
+        if (!job) return res.status(404).json({ message: 'Job not found' });
+
+        if (job.employer.toString() !== req.user.id) {
+            return res.status(401).json({ message: 'Not authorized' });
+        }
+
+        const update = job.progressUpdates.id(req.params.updateId);
+        if (!update) return res.status(404).json({ message: 'Progress update not found' });
+
+        update.status = 'approved';
+        // Only update job.verifiedProgress if proposedProgress is greater or equal to current value
+        if (update.proposedProgress >= job.verifiedProgress) {
+            job.verifiedProgress = update.proposedProgress;
+        }
+        update.verifiedProgress = job.verifiedProgress;
+        await job.save();
+
+        res.json(job);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Reject progress update
+// @route   PUT /api/work/:jobId/progress/:updateId/reject
+// @access  Private (Employer)
+const rejectProgress = async (req, res) => {
+    try {
+        const { rejectionReason } = req.body;
+        const job = await Job.findById(req.params.jobId);
+        if (!job) return res.status(404).json({ message: 'Job not found' });
+
+        if (job.employer.toString() !== req.user.id) {
+            return res.status(401).json({ message: 'Not authorized' });
+        }
+
+        const update = job.progressUpdates.id(req.params.updateId);
+        if (!update) return res.status(404).json({ message: 'Progress update not found' });
+
+        update.status = 'rejected';
+        update.rejectionReason = rejectionReason || 'No reason provided';
         await job.save();
 
         res.json(job);
@@ -126,6 +186,8 @@ const withdrawFunds = async (req, res) => {
 module.exports = {
     hireTasker,
     addProgress,
+    approveProgress,
+    rejectProgress,
     completeJob,
     releasePayment,
     withdrawFunds

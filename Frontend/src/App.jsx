@@ -23,6 +23,10 @@ import MyApplicationsPage from './pages/MyApplicationsPage';
 import EarningsPage from './pages/EarningsPage';
 import JobApplicationsPage from './pages/JobApplicationsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
+import AuthSuccess from './pages/AuthSuccess';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import VerifyOtpPage from './pages/VerifyOtpPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 function App() {
   return (
@@ -35,6 +39,10 @@ function App() {
             <Route path="/tasker" element={<TaskerLanding />} />
             <Route path="/organizer" element={<OrganizerLanding />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/auth-success" element={<AuthSuccess />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/verify-otp" element={<VerifyOtpPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/signup/freelancer" element={<FreelancerSignup />} />
             <Route path="/signup/organizer" element={<OrganizerSignup />} />
