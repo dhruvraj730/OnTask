@@ -150,10 +150,13 @@ const ProjectDetailPage = () => {
                                 </div>
                                 <div className="text-right">
                                     <p className="text-3xl font-bold text-gray-900">
-                                        {formatSalary(project.salary || project.budget)}
+                                        {isHiredTasker && myContract ? `₹${myContract.agreedBudget}` : 
+                                         (project.budget ? `₹${isEmployer ? project.budget : Math.round(project.budget / (project.positionsRequired || 1))}` : formatSalary(project.salary))}
                                     </p>
                                     <p className="text-xs font-bold text-gray-400 uppercase">
-                                        Estimated Budget
+                                        {isEmployer ? 'Total Job Budget' : 
+                                         isHiredTasker ? 'Your Contract Value' : 
+                                         (project.budget ? 'Budget per Worker' : 'Estimated Budget')}
                                     </p>
                                 </div>
                             </div>

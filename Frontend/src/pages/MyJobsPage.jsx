@@ -126,7 +126,9 @@ const MyJobsPage = () => {
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
                                         <div>
                                             <p className="text-xs font-bold text-gray-400 uppercase mb-1">Total Budget</p>
-                                            <p className="font-bold text-gray-900">{formatSalary(job.salary || job.budget)}</p>
+                                            <p className="font-bold text-gray-900">
+                                                {job.budget ? `₹${job.budget}` : formatSalary(job.salary)}
+                                            </p>
                                         </div>
                                         <div>
                                             <p className="text-xs font-bold text-gray-400 uppercase mb-1">Applications</p>

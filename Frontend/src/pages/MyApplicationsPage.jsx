@@ -287,10 +287,10 @@ const MyApplicationsPage = () => {
                                                 <p className="text-gray-600">{job.company}</p>
                                             </div>
                                             <div className="text-right">
-                                                <span className="block text-green-600 font-bold">₹
-                                                    {job.salary && String(job.salary).includes('₹')
+                                                <span className="block text-green-600 font-bold">
+                                                    {job.budget ? `₹${Math.round(job.budget / (job.positionsRequired || 1))}` : (job.salary && String(job.salary).includes('₹')
                                                         ? String(job.salary)
-                                                        : (String(job.salary).includes('$') ? String(job.salary).replaceAll('$', '₹') : job.salary || 'N/A')}
+                                                        : (String(job.salary).includes('$') ? String(job.salary).replaceAll('$', '₹') : job.salary || 'N/A'))}
                                                 </span>
                                                 {job.endDate && (
                                                     <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">

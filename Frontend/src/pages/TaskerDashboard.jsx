@@ -240,7 +240,10 @@ const TaskerDashboard = () => {
                                                     <Zap className="w-3 h-3" /> Urgent
                                                 </span>
                                             </div>
-                                            <p className="text-xl font-extrabold text-gray-900">{job.salary?.includes('$') ? job.salary.replaceAll('$', '₹') : (job.salary?.includes('₹') ? job.salary : (job.salary ? `₹${job.salary}` : 'Commensurate'))}</p>
+                                            <p className="text-xl font-extrabold text-gray-900">
+                                                {job.budget ? `₹${Math.round(job.budget / (job.positionsRequired || 1))}` : 
+                                                 (job.salary?.includes('$') ? job.salary.replaceAll('$', '₹') : (job.salary?.includes('₹') ? job.salary : (job.salary ? `₹${job.salary}` : 'Commensurate')))}
+                                            </p>
                                             <div className="mb-4 space-y-3">
                                                 <div>
                                                     <div className="flex justify-between text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-tight">

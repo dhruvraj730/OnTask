@@ -1,21 +1,22 @@
-import { useEffect } from 'react';
+import { useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import AuthContext from '../context/AuthContext';
 
 const AuthSuccess = () => {
   const navigate = useNavigate();
+  const { oauthLogin } = useContext(AuthContext);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     if (token) {
-      localStorage.setItem('token', token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       // Fetch user info
       axios.get('/api/auth/profile')
         .then(res => {
           const user = res.data;
-          localStorage.setItem('user', JSON.stringify(user));
+          oauthLogin(token, user);
           // Navigate based on role
           if (user.role === 'employer') {
             navigate('/pro/dashboard');

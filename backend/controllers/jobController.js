@@ -1,4 +1,5 @@
 const Job = require('../models/Job');
+const User = require('../models/User');
 
 // @desc    Get all jobs
 // @route   GET /api/jobs
@@ -23,7 +24,7 @@ const createJob = async (req, res) => {
         }
 
         const {
-            title, company, location, description, salary, startDate, duration,
+            title, company, location, description, salary, budget, startDate, duration,
             screeningQuestions, endDate, startTime, endTime, venue, uniformRequirements, positionsRequired
         } = req.body;
 
@@ -42,6 +43,7 @@ const createJob = async (req, res) => {
             location,
             description,
             salary,
+            budget,
             startDate,
             duration,
             screeningQuestions: screeningQuestions || [],
@@ -74,8 +76,14 @@ const releasePayment = async (req, res) => {
         }
 
         const employerId = (job.employer._id || job.employer).toString();
-        if (employerId !== req.user.id && employerId !== (req.user._id || '').toString()) {
-            return res.status(403).json({ message: 'Only the employer can release payments' });
+        const userId = (req.user._id || req.user.id).toString();
+
+        if (employerId !== userId) {
+            console.log(`[AUTH ERROR] User ${userId} (${req.user.email}) attempted to pay for job owned by ${employerId}`);
+            return res.status(403).json({ 
+                message: 'Only the employer of this job can release payments',
+                debug: process.env.NODE_ENV === 'development' ? { employerId, userId } : undefined
+            });
         }
 
         if (!freelancerId) {
@@ -87,47 +95,105 @@ const releasePayment = async (req, res) => {
             return res.status(400).json({ message: 'Freelancer is not hired for this job' });
         }
 
-        const budget = hire.agreedBudget || 0;
+        let budget = hire.agreedBudget || 0;
+        
+        // Refined fallback logic
+        const positionsRequired = Number(job.positionsRequired) || 1;
+        const totalJobBudget = job.budget || 0;
+        const totalSalaryBudget = (job.salary && job.salary.toLowerCase() !== 'negotiable') ? (Number(job.salary.match(/\d+/)?.[0]) || 0) : 0;
+        const effectiveTotalBudget = totalJobBudget > 0 ? totalJobBudget : totalSalaryBudget;
+
+        // If budget is missing OR it was incorrectly set to the TOTAL budget when it should have been divided
+        // and no payments have been made yet, we fix it.
+        if (budget <= 0 || (positionsRequired > 1 && budget === effectiveTotalBudget && hire.paidAmount === 0)) {
+            budget = effectiveTotalBudget / positionsRequired;
+            
+            if (budget > 0) {
+                hire.agreedBudget = budget;
+                // If no escrow yet or it's matching the old total budget, fix it
+                if (!hire.escrowAmount || hire.escrowAmount <= 0 || (positionsRequired > 1 && hire.escrowAmount === effectiveTotalBudget)) {
+                    hire.escrowAmount = budget;
+                }
+            }
+        }
+
         const alreadyPaid = hire.paidAmount || 0;
         const progress = hire.progress || 0;
 
         let amountToPay = 0;
 
-        if (type === 'partial') {
+        if (type === 'full') {
+            amountToPay = hire.escrowAmount;
+            hire.escrowAmount = 0;
+        } else if (type === 'partial') {
+            // Partial payment based on progress
             const totalOwedForProgress = Math.round((progress / 100) * budget);
             amountToPay = totalOwedForProgress - alreadyPaid;
-        } else if (type === 'full') {
-            amountToPay = budget - alreadyPaid;
+
+            if (amountToPay <= 0) {
+                return res.status(400).json({ message: 'No new progress-based payment available yet. Verify more work first.' });
+            }
+
+            if (amountToPay > hire.escrowAmount) {
+                amountToPay = hire.escrowAmount;
+            }
+            hire.escrowAmount -= amountToPay;
         } else {
             return res.status(400).json({ message: 'Invalid payment type. Use partial or full.' });
         }
 
         if (amountToPay <= 0) {
-            return res.status(400).json({ message: 'No pending payment amount for the current progress.' });
+            return res.status(400).json({ message: 'No funds available to release' });
         }
 
         // Update payment fields
         hire.paidAmount += amountToPay;
         hire.paymentHistory.push({
             amount: amountToPay,
-            type: type,
+            type,
             date: new Date()
         });
 
-        if (hire.paidAmount >= budget && hire.status !== 'completed') {
-            hire.status = 'completed';
+        // CRITICAL: Update Freelancer Wallet
+        const freelancer = await User.findById(freelancerId);
+        if (freelancer) {
+            freelancer.walletBalance += amountToPay;
+            freelancer.totalEarnings += amountToPay;
+            
+            // Add transaction record
+            freelancer.transactions.push({
+                type: 'payment',
+                amount: amountToPay,
+                description: `Payment for job: ${job.title} (${type})`,
+                status: 'completed',
+                date: new Date()
+            });
+
+            if (type === 'full') {
+                freelancer.completedProjects += 1;
+            }
+
+            await freelancer.save();
         }
 
+        // Check if all payments are done and job is finished
+        const allCompanied = job.hires.every(h => h.status === 'completed' && h.escrowAmount === 0);
+        if (allCompanied) {
+            job.jobStatus = 'completed';
+        }
+
+        job.markModified('hires');
         await job.save();
 
         res.status(200).json({
-            message: `Payment of ₹${amountToPay} released successfully`,
+            message: `Payment of ₹${amountToPay} released successfully to ${freelancer?.name}`,
             job
         });
     } catch (error) {
+        console.error("Error in releasePayment:", error);
         res.status(500).json({ message: error.message });
     }
-}
+};
 
 // @desc    Get my jobs
 // @route   GET /api/jobs/my-jobs
@@ -141,6 +207,38 @@ const getMyJobs = async (req, res) => {
         const jobs = await Job.find({ employer: req.user.id })
             .populate('hires.freelancer', 'name email skills hourlyRate')
             .populate('applications.applicant', 'name email skills hourlyRate');
+
+        // Apply fallback for 0 budgets in existing hires
+        let overallNeedsSave = false;
+        for (const job of jobs) {
+            let jobNeedsSave = false;
+            if (job.hires && job.hires.length > 0) {
+                let defaultBudget = job.budget || 0;
+                if (defaultBudget <= 0 && job.salary && job.salary.toLowerCase() !== 'negotiable') {
+                    const salaryMatch = job.salary.match(/\d+/);
+                    defaultBudget = salaryMatch ? Number(salaryMatch[0]) : 0;
+                }
+                
+                job.hires.forEach(hire => {
+                    const positionsRequired = Number(job.positionsRequired) || 1;
+                    const perWorkerBudget = defaultBudget / positionsRequired;
+
+                    // Fallback for missing budget OR legacy data where total budget was assigned instead of divided version
+                    if (defaultBudget > 0 && ((!hire.agreedBudget || hire.agreedBudget <= 0) || (positionsRequired > 1 && hire.agreedBudget === defaultBudget && (hire.paidAmount || 0) === 0))) {
+                        hire.agreedBudget = perWorkerBudget;
+                        if (!hire.escrowAmount || hire.escrowAmount <= 0 || (positionsRequired > 1 && hire.escrowAmount === defaultBudget)) {
+                            hire.escrowAmount = perWorkerBudget;
+                        }
+                        jobNeedsSave = true;
+                    }
+                });
+            }
+            if (jobNeedsSave) {
+                job.markModified('hires');
+                await job.save();
+                overallNeedsSave = true;
+            }
+        }
 
         res.status(200).json(jobs);
     } catch (error) {
@@ -160,6 +258,36 @@ const getJobById = async (req, res) => {
 
         if (!job) {
             return res.status(404).json({ message: 'Job not found' });
+        }
+
+        // Apply fallback for 0 budgets in existing hires
+        let needsSave = false;
+        if (job.hires && job.hires.length > 0) {
+            // Determine default budget from job.budget or job.salary
+            let defaultBudget = job.budget || 0;
+            if (defaultBudget <= 0 && job.salary && job.salary.toLowerCase() !== 'negotiable') {
+                const salaryMatch = job.salary.match(/\d+/);
+                defaultBudget = salaryMatch ? Number(salaryMatch[0]) : 0;
+            }
+            
+            job.hires.forEach(hire => {
+                const positionsRequired = Number(job.positionsRequired) || 1;
+                const perWorkerBudget = defaultBudget / positionsRequired;
+
+                // Fallback for missing budget OR legacy data where total budget was assigned instead of divided version
+                if (defaultBudget > 0 && ((!hire.agreedBudget || hire.agreedBudget <= 0) || (positionsRequired > 1 && hire.agreedBudget === defaultBudget && (hire.paidAmount || 0) === 0))) {
+                    hire.agreedBudget = perWorkerBudget;
+                    if (!hire.escrowAmount || hire.escrowAmount <= 0 || (positionsRequired > 1 && hire.escrowAmount === defaultBudget)) {
+                        hire.escrowAmount = perWorkerBudget;
+                    }
+                    needsSave = true;
+                }
+            });
+        }
+
+        if (needsSave) {
+            job.markModified('hires');
+            await job.save();
         }
 
         res.status(200).json(job);
@@ -224,12 +352,29 @@ const hireApplicant = async (req, res) => {
             return res.status(404).json({ message: 'Application not found' });
         }
 
+        const positionsRequired = Number(job.positionsRequired) || 1;
+
         // Check if all positions have been filled already
-        if (job.hires.length >= (job.positionsRequired || 1)) {
+        if (job.hires.length >= positionsRequired) {
             return res.status(400).json({ message: 'All available positions for this job have been filled' });
         }
 
-        let finalBudget = Number(job.salary.replace(/[^0-9.-]+/g, "")) || 0;
+        // Check if the applicant is already hired to prevent duplicate hires
+        const existingHire = job.hires.find(h => h.freelancer.toString() === applicantId);
+        if (existingHire) {
+            return res.status(400).json({ message: 'This freelancer has already been hired for this job' });
+        }
+
+        let totalBudget = Number(job.budget) || 0;
+        
+        if (totalBudget <= 0 && job.salary && job.salary.toLowerCase() !== 'negotiable') {
+            const match = job.salary.match(/\d+/);
+            if (match) {
+                totalBudget = Number(match[0]);
+            }
+        }
+
+        let finalBudget = totalBudget / positionsRequired;
 
         // Use negotiated budget if it was accepted
         if (application.offeredBudgetStatus === 'accepted' && application.offeredBudget) {
@@ -249,7 +394,7 @@ const hireApplicant = async (req, res) => {
         });
 
         // Automatically set status to in_progress if fully staffed
-        if (job.hires.length >= (job.positionsRequired || 1)) {
+        if (job.hires.length >= positionsRequired) {
             if (job.jobStatus === 'open') {
                 job.jobStatus = 'in_progress';
             }
@@ -455,6 +600,11 @@ const applyForJob = async (req, res) => {
 
         if (job.jobStatus === 'closed' || job.jobStatus === 'completed') {
             return res.status(400).json({ message: 'This job is no longer accepting applications' });
+        }
+
+        const positionsRequired = Number(job.positionsRequired) || 1;
+        if (job.hires && job.hires.length >= positionsRequired) {
+            return res.status(400).json({ message: 'All available positions for this job have already been filled' });
         }
 
         const application = {

@@ -19,6 +19,7 @@ const JobPostPage = () => {
         durationValue: '',
         durationUnit: 'days',
         positionsRequired: 1,
+        budget: 0,
         screeningQuestions: ['']
     });
 
@@ -119,6 +120,7 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
                 ...formData,
                 screeningQuestions: validQuestions,
                 positionsRequired: Number(positionsRequired),
+                budget: Number(formData.budget) || 0,
                 duration: {
                     value: Number(durationValue),
                     unit: durationUnit

@@ -61,7 +61,32 @@ const getActiveContracts = async (req, res) => {
             }
         }).populate('employer', 'name email');
 
-        res.status(200).json(jobs);
+        // Transform to include progressive data at top level for frontend convenience
+        const transformedJobs = jobs.map(job => {
+            const hire = job.hires.find(h => h.freelancer.toString() === req.user.id);
+            const jobObj = job.toObject();
+            
+            // Fallback for budget
+            let budget = hire ? hire.agreedBudget : 0;
+            if (budget <= 0) {
+                if (job.budget && job.budget > 0) {
+                    budget = job.budget;
+                } else if (job.salary) {
+                    const match = job.salary.match(/\d+/);
+                    if (match) budget = Number(match[0]);
+                }
+            }
+
+            return {
+                ...jobObj,
+                progress: hire ? hire.progress : 0,
+                verifiedProgress: hire ? hire.verifiedProgress : 0,
+                agreedBudget: budget,
+                paidAmount: hire ? hire.paidAmount : 0
+            };
+        });
+
+        res.status(200).json(transformedJobs);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -81,7 +106,31 @@ const getCompletedJobs = async (req, res) => {
             }
         }).populate('employer', 'name email');
 
-        res.status(200).json(jobs);
+        const transformedJobs = jobs.map(job => {
+            const hire = job.hires.find(h => h.freelancer.toString() === req.user.id);
+            const jobObj = job.toObject();
+
+            // Fallback for budget
+            let budget = hire ? hire.agreedBudget : 0;
+            if (budget <= 0) {
+                if (job.budget && job.budget > 0) {
+                    budget = job.budget;
+                } else if (job.salary) {
+                    const match = job.salary.match(/\d+/);
+                    if (match) budget = Number(match[0]);
+                }
+            }
+
+            return {
+                ...jobObj,
+                progress: hire ? hire.progress : 0,
+                verifiedProgress: hire ? hire.verifiedProgress : 0,
+                agreedBudget: budget,
+                paidAmount: hire ? hire.paidAmount : 0
+            };
+        });
+
+        res.status(200).json(transformedJobs);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

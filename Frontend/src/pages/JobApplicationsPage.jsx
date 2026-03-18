@@ -123,7 +123,9 @@ const JobApplicationsPage = () => {
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-6 pt-6 border-t border-gray-100">
                         <div>
                             <p className="text-xs font-bold text-gray-400 uppercase mb-1">Budget</p>
-                            <p className="font-extrabold text-gray-900 text-lg">{job.salary?.includes('$') ? job.salary.replaceAll('$', '₹') : (job.salary?.includes('₹') ? job.salary : (job.salary ? `₹${job.salary}` : 'N/A'))}</p>
+                            <p className="font-extrabold text-gray-900 text-lg">
+                                {job.budget ? `₹${job.budget}` : (job.salary?.includes('$') ? job.salary.replaceAll('$', '₹') : (job.salary?.includes('₹') ? job.salary : (job.salary ? `₹${job.salary}` : 'N/A')))}
+                            </p>
                         </div>
                         <div>
                             <p className="text-xs font-bold text-gray-400 uppercase mb-1">Timeline</p>
@@ -170,7 +172,9 @@ const JobApplicationsPage = () => {
                                                 <p className="text-sm text-gray-500 font-medium">Applied {new Date(app.appliedAt).toLocaleDateString()}</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-2xl font-bold text-green-600">{job.salary?.includes('$') ? job.salary.replaceAll('$', '₹') : (job.salary?.includes('₹') ? job.salary : (job.salary ? `₹${job.salary}` : 'N/A'))}</p>
+                                                <p className="text-2xl font-bold text-green-600">
+                                                    {job.budget ? `₹${job.budget}` : (job.salary?.includes('$') ? job.salary.replaceAll('$', '₹') : (job.salary?.includes('₹') ? job.salary : (job.salary ? `₹${job.salary}` : 'N/A')))}
+                                                </p>
                                                 <p className="text-xs font-bold text-gray-400 uppercase">Proposed rate</p>
                                             </div>
                                         </div>
@@ -284,7 +288,7 @@ const JobApplicationsPage = () => {
                                                         title={(job.hires?.length || 0) >= (job.positionsRequired || 1) ? 'All positions are filled' : ''}
                                                         className={`flex-1 font-bold py-3 px-8 rounded-xl transition-all shadow-lg ${(job.hires?.length || 0) >= (job.positionsRequired || 1) ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none' : 'bg-green-600 text-white hover:bg-green-700 shadow-green-600/20'}`}
                                                     >
-                                                        {(job.hires?.length || 0) >= (job.positionsRequired || 1) ? 'Limit Reached' : 'Hire This Freelancer'}
+                                                        {(job.hires?.length || 0) >= (job.positionsRequired || 1) ? 'Positions Filled' : 'Hire This Freelancer'}
                                                     </button>
                                                 </>
                                             )}

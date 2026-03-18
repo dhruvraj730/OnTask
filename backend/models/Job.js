@@ -26,6 +26,9 @@ const jobSchema = mongoose.Schema({
         type: String,
         required: [true, 'Please add a salary range']
     },
+    budget: {
+        type: Number
+    },
     // Event Specifics
     startDate: {
         type: Date,
