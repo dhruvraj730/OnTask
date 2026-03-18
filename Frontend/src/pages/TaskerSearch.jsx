@@ -75,6 +75,9 @@ const TaskerSearch = () => {
                             <div className="text-sm text-gray-500 mb-4 space-y-1">
                                 <p>📍 {job.location}</p>
                                 <p>💰 {job.salary?.includes('$') ? job.salary.replaceAll('$', '₹') : (job.salary?.includes('₹') ? job.salary : (job.salary ? `₹${job.salary}` : 'N/A'))}</p>
+                                {(job.positionsRequired || 1) - (job.hires?.length || 0) > 0 && (
+                                    <p className="text-green-600 font-bold text-xs uppercase pt-1">🔥 {Math.max(0, (job.positionsRequired || 1) - (job.hires?.length || 0))} Position(s) Left</p>
+                                )}
                             </div>
                             <p className="text-gray-600 text-sm mb-4 line-clamp-3">{job.description}</p>
                             {user?.role === 'job_seeker' ? (

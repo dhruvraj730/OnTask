@@ -23,8 +23,8 @@ const createJob = async (req, res) => {
         }
 
         const {
-            title, company, location, description, salary, budget, startDate, duration,
-            screeningQuestions, endDate, startTime, endTime, venue, uniformRequirements
+            title, company, location, description, salary, startDate, duration,
+            screeningQuestions, endDate, startTime, endTime, venue, uniformRequirements, positionsRequired
         } = req.body;
 
         if (!title) return res.status(400).json({ message: 'Please add a job title' });
@@ -35,33 +35,6 @@ const createJob = async (req, res) => {
         if (!startDate) return res.status(400).json({ message: 'Please add a starting date' });
         if (!duration || !duration.value || !duration.unit) return res.status(400).json({ message: 'Please add a work duration' });
 
-        // Extract numeric budget from salary if not provided
-        let jobBudget = Number(budget);
-        if (!jobBudget && salary) {
-            const numericMatch = salary.replace(/,/g, '').match(/\d+/);
-            if (numericMatch) {
-                jobBudget = Number(numericMatch[0]);
-            }
-        }
-
-        console.log('[DEBUG] Attempting to create job with payload:', JSON.stringify({
-            employer: req.user.id,
-            title,
-            company,
-            location,
-            description,
-            salary,
-            budget: jobBudget || 0,
-            startDate,
-            duration,
-            screeningQuestions: screeningQuestions || [],
-            endDate,
-            startTime,
-            endTime,
-            venue,
-            uniformRequirements
-        }, null, 2));
-
         const job = await Job.create({
             employer: req.user.id,
             title,
@@ -69,10 +42,10 @@ const createJob = async (req, res) => {
             location,
             description,
             salary,
-            budget: jobBudget || 0,
             startDate,
             duration,
             screeningQuestions: screeningQuestions || [],
+            positionsRequired: positionsRequired || 1,
             endDate,
             startTime,
             endTime,
@@ -93,7 +66,7 @@ const createJob = async (req, res) => {
 // @access  Private (Employer only)
 const releasePayment = async (req, res) => {
     try {
-        const { type } = req.body; // 'partial' or 'full'
+        const { type, freelancerId } = req.body; // 'partial' or 'full'
         const job = await Job.findById(req.params.id);
 
         if (!job) {
@@ -105,13 +78,18 @@ const releasePayment = async (req, res) => {
             return res.status(403).json({ message: 'Only the employer can release payments' });
         }
 
-        if (!job.hiredTasker) {
-            return res.status(400).json({ message: 'No freelancer hired for this job' });
+        if (!freelancerId) {
+            return res.status(400).json({ message: 'Freelancer ID is required to release payment' });
         }
 
-        const budget = job.budget || 0;
-        const alreadyPaid = job.paidAmount || 0;
-        const progress = job.progress || 0;
+        const hire = job.hires.find(h => h.freelancer.toString() === freelancerId);
+        if (!hire) {
+            return res.status(400).json({ message: 'Freelancer is not hired for this job' });
+        }
+
+        const budget = hire.agreedBudget || 0;
+        const alreadyPaid = hire.paidAmount || 0;
+        const progress = hire.progress || 0;
 
         let amountToPay = 0;
 
@@ -129,18 +107,15 @@ const releasePayment = async (req, res) => {
         }
 
         // Update payment fields
-        job.paidAmount += amountToPay;
-        job.paymentHistory.push({
+        hire.paidAmount += amountToPay;
+        hire.paymentHistory.push({
             amount: amountToPay,
             type: type,
             date: new Date()
         });
 
-        // Update job status
-        if (job.paidAmount >= budget) {
-            job.jobStatus = 'paid';
-        } else {
-            job.jobStatus = 'partially_paid';
+        if (hire.paidAmount >= budget && hire.status !== 'completed') {
+            hire.status = 'completed';
         }
 
         await job.save();
@@ -164,7 +139,7 @@ const getMyJobs = async (req, res) => {
         }
 
         const jobs = await Job.find({ employer: req.user.id })
-            .populate('hiredTasker', 'name email skills hourlyRate')
+            .populate('hires.freelancer', 'name email skills hourlyRate')
             .populate('applications.applicant', 'name email skills hourlyRate');
 
         res.status(200).json(jobs);
@@ -180,6 +155,7 @@ const getJobById = async (req, res) => {
     try {
         const job = await Job.findById(req.params.id)
             .populate('employer', 'name email company')
+            .populate('hires.freelancer', 'name email skills hourlyRate avatar')
             .populate('applications.applicant', 'name email skills hourlyRate bio assessmentScore rating completedProjects totalEarnings experience');
 
         if (!job) {
@@ -248,15 +224,44 @@ const hireApplicant = async (req, res) => {
             return res.status(404).json({ message: 'Application not found' });
         }
 
+        // Check if all positions have been filled already
+        if (job.hires.length >= (job.positionsRequired || 1)) {
+            return res.status(400).json({ message: 'All available positions for this job have been filled' });
+        }
+
+        let finalBudget = Number(job.salary.replace(/[^0-9.-]+/g, "")) || 0;
+
         // Use negotiated budget if it was accepted
         if (application.offeredBudgetStatus === 'accepted' && application.offeredBudget) {
             console.log(`[Hire] Using negotiated budget: ₹${application.offeredBudget}`);
-            job.budget = application.offeredBudget;
+            finalBudget = application.offeredBudget;
         }
 
         application.status = 'hired';
-        job.hiredTasker = applicantId;
-        job.jobStatus = 'in_progress'; // Status is now in_progress when someone is hired
+
+        // Add to hires array
+        job.hires.push({
+            freelancer: applicantId,
+            status: 'in_progress',
+            agreedBudget: finalBudget,
+            paidAmount: 0,
+            escrowAmount: finalBudget > 0 ? finalBudget : 0,
+        });
+
+        // Automatically set status to in_progress if fully staffed
+        if (job.hires.length >= (job.positionsRequired || 1)) {
+            if (job.jobStatus === 'open') {
+                job.jobStatus = 'in_progress';
+            }
+
+            // Auto reject all other pending/applied/interviewing applications
+            job.applications.forEach(app => {
+                if (app.status !== 'hired' && app.status !== 'rejected') {
+                    app.status = 'rejected';
+                }
+            });
+            job.markModified('applications');
+        }
 
         await job.save();
         res.status(200).json(job);
@@ -316,9 +321,9 @@ const addJobUpdate = async (req, res) => {
             return res.status(404).json({ message: 'Job not found' });
         }
 
-        const taskerId = job.hiredTasker ? (job.hiredTasker._id || job.hiredTasker).toString() : null;
-        if (!taskerId || (taskerId !== req.user.id && taskerId !== (req.user._id || '').toString())) {
-            return res.status(403).json({ message: 'Only the hired tasker can post updates' });
+        const hire = job.hires.find(h => h.freelancer.toString() === req.user.id || h.freelancer.toString() === (req.user._id || '').toString());
+        if (!hire) {
+            return res.status(403).json({ message: 'You are not hired for this job' });
         }
 
         const newUpdate = {
@@ -330,13 +335,13 @@ const addJobUpdate = async (req, res) => {
 
         if (progress !== undefined) {
             const proposedProgress = Number(progress);
-            if (proposedProgress < (job.progress || 0)) {
-                return res.status(400).json({ message: `Proposed progress (${proposedProgress}%) cannot be less than the current verified progress (${job.progress || 0}%)` });
+            if (proposedProgress < (hire.progress || 0)) {
+                return res.status(400).json({ message: `Proposed progress (${proposedProgress}%) cannot be less than the current verified progress (${hire.progress || 0}%)` });
             }
             newUpdate.proposedProgress = proposedProgress;
         }
 
-        job.progressUpdates.push(newUpdate);
+        hire.progressUpdates.push(newUpdate);
 
         await job.save();
         res.status(200).json(job);
@@ -351,7 +356,6 @@ const addJobUpdate = async (req, res) => {
 const verifyJobUpdate = async (req, res) => {
     try {
         const { action, overrideProgress, rejectionReason } = req.body; // 'approve' or 'reject'
-        console.log(`Verifying update: action=${action}, overrideProgress=${overrideProgress}`);
         const job = await Job.findById(req.params.id);
 
         if (!job) {
@@ -363,36 +367,43 @@ const verifyJobUpdate = async (req, res) => {
             return res.status(403).json({ message: 'Only the employer can verify updates' });
         }
 
-        const update = job.progressUpdates.id(req.params.updateId);
+        let targetHire = null;
+        let update = null;
 
-        if (!update) {
+        for (const hire of job.hires) {
+            update = hire.progressUpdates.id(req.params.updateId);
+            if (update) {
+                targetHire = hire;
+                break;
+            }
+        }
+
+        if (!update || !targetHire) {
             return res.status(404).json({ message: 'Update not found' });
         }
 
         if (action === 'approve') {
-            // Priority: overrideProgress > update.proposedProgress > job.progress
-            let finalProgress = job.progress || 0;
+            // Priority: overrideProgress > update.proposedProgress > hire.progress
+            let finalProgress = targetHire.progress || 0;
             if (overrideProgress !== undefined) {
                 finalProgress = Number(overrideProgress);
             } else if (update.proposedProgress !== undefined) {
                 finalProgress = update.proposedProgress;
             }
 
-            if (finalProgress < (job.progress || 0)) {
-                return res.status(400).json({ message: `Verified progress (${finalProgress}%) cannot be less than the current verified progress (${job.progress || 0}%)` });
+            if (finalProgress < (targetHire.progress || 0)) {
+                return res.status(400).json({ message: `Verified progress (${finalProgress}%) cannot be less than the current verified progress (${targetHire.progress || 0}%)` });
             }
-            
+
             update.status = 'approved';
-            // Explicitly set verifiedProgress on the subdoc
             update.verifiedProgress = finalProgress;
 
-            // Sync main job progress
-            job.progress = finalProgress;
+            targetHire.progress = finalProgress;
+            targetHire.verifiedProgress = finalProgress;
 
-            if (job.progress >= 100) {
-                job.jobStatus = 'completed';
+            if (targetHire.progress >= 100) {
+                targetHire.status = 'completed';
             }
-            console.log(`Step: Approval - Final Progress set to ${finalProgress}, update.verifiedProgress: ${update.verifiedProgress}`);
         } else if (action === 'reject') {
             update.status = 'rejected';
             if (rejectionReason) {
@@ -402,9 +413,8 @@ const verifyJobUpdate = async (req, res) => {
             return res.status(400).json({ message: 'Invalid action' });
         }
 
-        job.markModified('progressUpdates');
+        job.markModified('hires');
         await job.save();
-        console.log('Job saved successfully after verification');
         res.status(200).json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -415,20 +425,15 @@ const verifyJobUpdate = async (req, res) => {
 // @route   POST /api/jobs/:id/apply
 // @access  Private (Job Seeker only)
 const applyForJob = async (req, res) => {
-    console.log(`[ApplyForJob] Request received for Job ID: ${req.params.id}`);
-    console.log(`[ApplyForJob] User ID: ${req.user?._id}, Role: ${req.user?.role}`);
-
     try {
         const { proposal, answers } = req.body;
         const job = await Job.findById(req.params.id);
 
         if (!job) {
-            console.log('[ApplyForJob] Job not found');
             return res.status(404).json({ message: 'Job not found' });
         }
 
         if (req.user.role !== 'job_seeker') {
-            console.log(`[ApplyForJob] User is not a job seeker: ${req.user.role}`);
             return res.status(403).json({ message: 'Only job seekers can apply' });
         }
 
@@ -445,20 +450,17 @@ const applyForJob = async (req, res) => {
         );
 
         if (alreadyApplied) {
-            console.log('[ApplyForJob] User already applied');
             return res.status(400).json({ message: 'You have already applied for this job' });
         }
 
-        // Check if job is open
-        if (job.jobStatus !== 'open') {
-            console.log(`[ApplyForJob] Job status is not open: ${job.jobStatus}`);
+        if (job.jobStatus === 'closed' || job.jobStatus === 'completed') {
             return res.status(400).json({ message: 'This job is no longer accepting applications' });
         }
 
         const application = {
             applicant: req.user.id,
             proposal: proposal || '',
-            answers: answers || [], // Save answers
+            answers: answers || [],
             appliedAt: Date.now(),
             status: 'applied'
         };
@@ -466,7 +468,6 @@ const applyForJob = async (req, res) => {
         job.applications.push(application);
         await job.save();
 
-        console.log('[ApplyForJob] Application submitted successfully');
         res.status(200).json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -542,4 +543,3 @@ module.exports = {
     proposeNegotiation,
     respondToNegotiation
 }
-

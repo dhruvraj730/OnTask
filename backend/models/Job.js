@@ -57,6 +57,11 @@ const jobSchema = mongoose.Schema({
     uniformRequirements: {
         type: String
     },
+    positionsRequired: {
+        type: Number,
+        default: 1,
+        min: 1
+    },
     // Screening & Applications
     screeningQuestions: [{
         type: String
@@ -107,67 +112,80 @@ const jobSchema = mongoose.Schema({
         }
     }],
     // Work Cycle & Payment
-    hiredTasker: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    },
+    // Overall Job State
     jobStatus: {
         type: String,
-        enum: ['open', 'hired', 'in_progress', 'completed', 'partially_paid', 'paid'],
+        enum: ['open', 'in_progress', 'closed', 'completed'],
         default: 'open'
     },
-    budget: {
-        type: Number,
-        default: 0
-    },
-    paidAmount: {
-        type: Number,
-        default: 0
-    },
-    paymentHistory: [{
-        amount: Number,
-        type: {
-            type: String,
-            enum: ['partial', 'full']
+    // Multiple Contracts/Hires
+    hires: [{
+        freelancer: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
         },
-        date: {
+        status: {
+            type: String,
+            enum: ['hired', 'in_progress', 'completed', 'cancelled'],
+            default: 'hired'
+        },
+        agreedBudget: {
+            type: Number,
+            default: 0
+        },
+        paidAmount: {
+            type: Number,
+            default: 0
+        },
+        escrowAmount: {
+            type: Number,
+            default: 0
+        },
+        paymentHistory: [{
+            amount: Number,
+            type: {
+                type: String,
+                enum: ['partial', 'full']
+            },
+            date: {
+                type: Date,
+                default: Date.now
+            }
+        }],
+        progressUpdates: [{
+            imageUrl: String,
+            description: String,
+            date: { type: Date, default: Date.now },
+            proposedProgress: { type: Number },
+            status: {
+                type: String,
+                enum: ['pending', 'approved', 'rejected'],
+                default: 'pending'
+            },
+            rejectionReason: {
+                type: String
+            },
+            verifiedProgress: {
+                type: Number
+            }
+        }],
+        progress: {
+            type: Number,
+            default: 0,
+            min: 0,
+            max: 100
+        },
+        verifiedProgress: {
+            type: Number,
+            default: 0,
+            min: 0,
+            max: 100
+        },
+        hiredAt: {
             type: Date,
             default: Date.now
         }
-    }],
-    escrowAmount: {
-        type: Number,
-        default: 0
-    },
-    progressUpdates: [{
-        imageUrl: String,
-        description: String,
-        date: { type: Date, default: Date.now },
-        proposedProgress: { type: Number },
-        status: {
-            type: String,
-            enum: ['pending', 'approved', 'rejected'],
-            default: 'pending'
-        },
-        rejectionReason: {
-            type: String
-        },
-        verifiedProgress: {
-            type: Number
-        }
-    }],
-    progress: {
-        type: Number,
-        default: 0,
-        min: 0,
-        max: 100
-    },
-    verifiedProgress: {
-        type: Number,
-        default: 0,
-        min: 0,
-        max: 100
-    }
+    }]
 }, {
     timestamps: true
 });
@@ -220,9 +238,8 @@ jobSchema.virtual('timeBasedProgress').get(function () {
         let start = new Date(startDateValue);
         const end = new Date(endDateValue);
 
-        // Smart Start: If the job is in progress/completed, it has effectively started.
         // Use the earlier of startDate or createdAt to ensure the timeline shows progress.
-        if (this.jobStatus === 'in_progress' || this.jobStatus === 'completed' || (this.progress && this.progress > 0)) {
+        if (this.jobStatus === 'in_progress' || this.jobStatus === 'completed' || (this.hires && this.hires.length > 0)) {
             const createdDate = new Date(this.createdAt || Date.now());
             if (createdDate < start) {
                 start = createdDate;

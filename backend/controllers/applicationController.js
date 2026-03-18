@@ -53,8 +53,12 @@ const getMyApplications = async (req, res) => {
 const getActiveContracts = async (req, res) => {
     try {
         const jobs = await Job.find({
-            hiredTasker: req.user.id,
-            jobStatus: { $in: ['hired', 'in_progress'] }
+            'hires': {
+                $elemMatch: {
+                    freelancer: req.user.id,
+                    status: { $in: ['hired', 'in_progress'] }
+                }
+            }
         }).populate('employer', 'name email');
 
         res.status(200).json(jobs);
@@ -69,8 +73,12 @@ const getActiveContracts = async (req, res) => {
 const getCompletedJobs = async (req, res) => {
     try {
         const jobs = await Job.find({
-            hiredTasker: req.user.id,
-            jobStatus: { $in: ['completed', 'paid'] }
+            'hires': {
+                $elemMatch: {
+                    freelancer: req.user.id,
+                    status: { $in: ['completed', 'cancelled'] }
+                }
+            }
         }).populate('employer', 'name email');
 
         res.status(200).json(jobs);

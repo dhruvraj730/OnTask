@@ -94,7 +94,7 @@ const EmployerDashboard = () => {
 
                 {/* Welcome Message */}
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Welcome Back</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 mt-8">Welcome Back</h2>
                     <p className="text-gray-500">Manage your projects and find top talent</p>
                 </div>
 
@@ -176,54 +176,70 @@ const EmployerDashboard = () => {
                         {loading ? (
                             <p>Loading projects...</p>
                         ) : jobs.length > 0 ? (
-                            jobs.slice(0, 3).map((job) => (
-                                <Link to={`/project/${job._id}`} key={job._id} className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group">
-                                    <h4 className="font-bold text-gray-900 mb-2 truncate group-hover:text-blue-600 transition-colors">{job.title}</h4>
-                                    <p className="text-gray-500 text-sm mb-4">
-                                        Assigned to: <span className="font-semibold text-gray-900">
-                                            {job.hiredTasker?.name || (job.jobStatus === 'open' ? "Searching..." : "Pending...")}
-                                        </span>
-                                    </p>
+                            jobs.slice(0, 3).map((job) => {
+                                const hiresCount = job.hires?.length || 0;
+                                const avgProgress = hiresCount > 0
+                                    ? Math.round(job.hires.reduce((acc, h) => acc + (h.progress || 0), 0) / hiresCount)
+                                    : 0;
 
-                                    <div className="mb-4 space-y-3">
-                                        <div>
-                                            <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-tight">
-                                                <span>Verified Progress</span>
-                                                <span className="text-emerald-600 font-bold">{job.progress || 0}%</span>
-                                            </div>
-                                            <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                                                <div
-                                                    className="bg-gradient-to-r from-emerald-500 to-teal-600 h-2 rounded-full transition-all duration-500"
-                                                    style={{ width: `${job.progress || 0}%` }}
-                                                ></div>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <div className="flex justify-between text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-widest font-mono">
-                                                <span>Schedule Progress</span>
-                                                <span className="text-blue-500">{job.timeBasedProgress || 0}%</span>
-                                            </div>
-                                            <div className="w-full bg-gray-100 rounded-full h-1 overflow-hidden">
-                                                <div
-                                                    className="bg-blue-400 h-1 rounded-full transition-all duration-500"
-                                                    style={{ width: `${job.timeBasedProgress || 0}%` }}
-                                                ></div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                let assignedText = "Pending...";
+                                if (job.jobStatus === 'open') {
+                                    assignedText = "Searching...";
+                                } else if (hiresCount === 1) {
+                                    assignedText = job.hires[0].freelancer?.name || "1 Freelancer";
+                                } else if (hiresCount > 1) {
+                                    assignedText = `${hiresCount} Freelancers`;
+                                }
 
-                                    <div className="flex justify-between items-center">
-                                        <span className="px-3 py-1 bg-red-50 text-red-600 text-[10px] font-bold rounded-md">
-                                            {job.startDate ? `Starts ${new Date(job.startDate).toLocaleDateString()}` : "Immediate"}
-                                        </span>
-                                        {job.endDate && (
-                                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
-                                                Due {new Date(job.endDate).toLocaleDateString()}
+                                return (
+                                    <Link to={`/project/${job._id}`} key={job._id} className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group">
+                                        <h4 className="font-bold text-gray-900 mb-2 truncate group-hover:text-blue-600 transition-colors">{job.title}</h4>
+                                        <p className="text-gray-500 text-sm mb-4">
+                                            Assigned to: <span className="font-semibold text-gray-900">
+                                                {assignedText}
                                             </span>
-                                        )}
-                                    </div>
-                                </Link>
-                            ))
+                                        </p>
+
+                                        <div className="mb-4 space-y-3">
+                                            <div>
+                                                <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-tight">
+                                                    <span>Verified Progress</span>
+                                                    <span className="text-emerald-600 font-bold">{avgProgress || 0}%</span>
+                                                </div>
+                                                <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                                    <div
+                                                        className="bg-gradient-to-r from-emerald-500 to-teal-600 h-2 rounded-full transition-all duration-500"
+                                                        style={{ width: `${avgProgress || 0}%` }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div className="flex justify-between text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-widest font-mono">
+                                                    <span>Schedule Progress</span>
+                                                    <span className="text-blue-500">{job.timeBasedProgress || 0}%</span>
+                                                </div>
+                                                <div className="w-full bg-gray-100 rounded-full h-1 overflow-hidden">
+                                                    <div
+                                                        className="bg-blue-400 h-1 rounded-full transition-all duration-500"
+                                                        style={{ width: `${job.timeBasedProgress || 0}%` }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex justify-between items-center">
+                                            <span className="px-3 py-1 bg-red-50 text-red-600 text-[10px] font-bold rounded-md">
+                                                {job.startDate ? `Starts ${new Date(job.startDate).toLocaleDateString()}` : "Immediate"}
+                                            </span>
+                                            {job.endDate && (
+                                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
+                                                    Due {new Date(job.endDate).toLocaleDateString()}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </Link>
+                                );
+                            })
                         ) : (
                             <p className="text-gray-500 col-span-3 text-center py-8">No active projects found. Use the AI Job Poster to start!</p>
                         )}

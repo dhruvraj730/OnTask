@@ -2,15 +2,15 @@ import { useState } from 'react';
 import axios from 'axios';
 import { Send, X } from 'lucide-react';
 
-const PaymentModal = ({ job, isOpen, onClose, onSuccess }) => {
+const PaymentModal = ({ job, hire, isOpen, onClose, onSuccess }) => {
     const [payType, setPayType] = useState('partial');
     const token = localStorage.getItem('token');
 
-    if (!isOpen) return null;
+    if (!isOpen || !hire) return null;
 
-    const budget = job.budget || 0;
-    const paid = job.paidAmount || 0;
-    const progress = job.progress || 0;
+    const budget = hire.agreedBudget || 0;
+    const paid = hire.paidAmount || 0;
+    const progress = hire.progress || 0;
 
     const verifiedWorkValue = Math.round((progress / 100) * budget);
     const partialAmount = Math.max(0, verifiedWorkValue - paid);
@@ -19,7 +19,8 @@ const PaymentModal = ({ job, isOpen, onClose, onSuccess }) => {
 
     const handleReleasePayment = async () => {
         try {
-            await axios.put(`/api/jobs/${job._id}/pay`, { type: payType }, {
+            const freelancerId = hire.freelancer._id || hire.freelancer;
+            await axios.put(`/api/jobs/${job._id}/pay`, { type: payType, freelancerId }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             alert(`${payType === 'full' ? 'Full' : 'Partial'} payment of ₹${currentAmount} released successfully!`);
@@ -48,9 +49,10 @@ const PaymentModal = ({ job, isOpen, onClose, onSuccess }) => {
                 </div>
 
                 <div className="space-y-4 mb-8">
+                    <p className="text-sm text-gray-500 font-bold mb-2">For Freelancer: {hire.freelancer.name}</p>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Total Budget</p>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Contract Budget</p>
                             <p className="font-bold text-gray-900 font-mono text-lg">₹{budget}</p>
                         </div>
                         <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">

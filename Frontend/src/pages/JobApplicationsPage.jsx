@@ -146,6 +146,12 @@ const JobApplicationsPage = () => {
 
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-2xl font-bold text-gray-900">Applications ({applications.length})</h2>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-gray-500 uppercase hidden sm:block">Positions Filled:</span>
+                        <span className={`px-3 py-1 rounded-full text-sm font-bold ${(job.hires?.length || 0) >= (job.positionsRequired || 1) ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                            {job.hires?.length || 0} / {job.positionsRequired || 1}
+                        </span>
+                    </div>
                 </div>
 
                 {/* Applications List */}
@@ -274,9 +280,11 @@ const JobApplicationsPage = () => {
                                                     </button>
                                                     <button
                                                         onClick={() => handleHire(app.applicant._id)}
-                                                        className="flex-1 bg-green-600 text-white font-bold py-3 px-8 rounded-xl hover:bg-green-700 transition-all shadow-lg shadow-green-600/20"
+                                                        disabled={(job.hires?.length || 0) >= (job.positionsRequired || 1)}
+                                                        title={(job.hires?.length || 0) >= (job.positionsRequired || 1) ? 'All positions are filled' : ''}
+                                                        className={`flex-1 font-bold py-3 px-8 rounded-xl transition-all shadow-lg ${(job.hires?.length || 0) >= (job.positionsRequired || 1) ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none' : 'bg-green-600 text-white hover:bg-green-700 shadow-green-600/20'}`}
                                                     >
-                                                        Hire This Freelancer
+                                                        {(job.hires?.length || 0) >= (job.positionsRequired || 1) ? 'Limit Reached' : 'Hire This Freelancer'}
                                                     </button>
                                                 </>
                                             )}

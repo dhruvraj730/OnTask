@@ -13,13 +13,22 @@ const hireTasker = async (req, res) => {
             return res.status(401).json({ message: 'Not authorized' });
         }
 
-        job.hiredTasker = req.params.userId;
-        job.jobStatus = 'hired';
-
-        // Mock Escrow: Set amount based on salary string (simplified parsing)
-        // In real app, this comes from payment gateway
         const salaryNum = parseInt(job.salary.replace(/\D/g, '')) || 0;
-        job.escrowAmount = salaryNum > 0 ? salaryNum : 100; // Default or parsed
+
+        const existingHire = job.hires.find(h => h.freelancer.toString() === req.params.userId);
+        if (!existingHire) {
+            job.hires.push({
+                freelancer: req.params.userId,
+                status: 'in_progress',
+                agreedBudget: salaryNum > 0 ? salaryNum : 100,
+                escrowAmount: salaryNum > 0 ? salaryNum : 100,
+                paidAmount: 0
+            });
+        }
+
+        if (job.jobStatus === 'open') {
+            job.jobStatus = 'in_progress';
+        }
 
         await job.save();
         res.json(job);
@@ -37,19 +46,19 @@ const addProgress = async (req, res) => {
         const job = await Job.findById(req.params.jobId);
 
         if (!job) return res.status(404).json({ message: 'Job not found' });
-        if (job.hiredTasker.toString() !== req.user.id) {
-            return res.status(401).json({ message: 'Not authorized' });
+
+        const hire = job.hires.find(h => h.freelancer.toString() === req.user.id);
+        if (!hire) {
+            return res.status(401).json({ message: 'Not hired for this job' });
         }
 
-        // Enforce strictly forward progress
-        if (proposedProgress <= job.verifiedProgress) {
-            return res.status(400).json({ message: `Progress must be greater than current verified progress (${job.verifiedProgress}%)` });
+        if (proposedProgress <= (hire.verifiedProgress || 0)) {
+            return res.status(400).json({ message: `Progress must be greater than current verified progress (${hire.verifiedProgress || 0}%)` });
         }
 
-        job.progressUpdates.push({ imageUrl, description, proposedProgress });
-        job.jobStatus = 'in_progress';
+        hire.progressUpdates.push({ imageUrl, description, proposedProgress, status: 'pending' });
+
         await job.save();
-
         res.json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -68,17 +77,30 @@ const approveProgress = async (req, res) => {
             return res.status(401).json({ message: 'Not authorized' });
         }
 
-        const update = job.progressUpdates.id(req.params.updateId);
+        let targetHire = null;
+        let update = null;
+        for (const hire of job.hires) {
+            update = hire.progressUpdates.id(req.params.updateId);
+            if (update) {
+                targetHire = hire;
+                break;
+            }
+        }
+
         if (!update) return res.status(404).json({ message: 'Progress update not found' });
 
         update.status = 'approved';
-        // Only update job.verifiedProgress if proposedProgress is greater or equal to current value
-        if (update.proposedProgress >= job.verifiedProgress) {
-            job.verifiedProgress = update.proposedProgress;
+        if (update.proposedProgress >= (targetHire.verifiedProgress || 0)) {
+            targetHire.verifiedProgress = update.proposedProgress;
+            targetHire.progress = update.proposedProgress;
         }
-        update.verifiedProgress = job.verifiedProgress;
-        await job.save();
+        update.verifiedProgress = targetHire.verifiedProgress;
 
+        if (targetHire.progress >= 100) {
+            targetHire.status = 'completed';
+        }
+
+        await job.save();
         res.json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -98,7 +120,12 @@ const rejectProgress = async (req, res) => {
             return res.status(401).json({ message: 'Not authorized' });
         }
 
-        const update = job.progressUpdates.id(req.params.updateId);
+        let update = null;
+        for (const hire of job.hires) {
+            update = hire.progressUpdates.id(req.params.updateId);
+            if (update) break;
+        }
+
         if (!update) return res.status(404).json({ message: 'Progress update not found' });
 
         update.status = 'rejected';
@@ -119,7 +146,13 @@ const completeJob = async (req, res) => {
         const job = await Job.findById(req.params.jobId);
         if (!job) return res.status(404).json({ message: 'Job not found' });
 
-        job.jobStatus = 'completed';
+        const hire = job.hires.find(h => h.freelancer.toString() === req.user.id);
+        if (!hire) return res.status(401).json({ message: 'Not authorized' });
+
+        hire.status = 'completed';
+        hire.progress = 100;
+        hire.verifiedProgress = 100;
+
         await job.save();
         res.json(job);
     } catch (error) {
@@ -132,6 +165,7 @@ const completeJob = async (req, res) => {
 // @access  Private (Employer)
 const releasePayment = async (req, res) => {
     try {
+        const { freelancerId } = req.body;
         const job = await Job.findById(req.params.jobId);
         if (!job) return res.status(404).json({ message: 'Job not found' });
 
@@ -139,23 +173,33 @@ const releasePayment = async (req, res) => {
             return res.status(401).json({ message: 'Not authorized' });
         }
 
-        if (job.jobStatus === 'paid') {
+        if (!freelancerId) {
+            return res.status(400).json({ message: 'Freelancer ID is required' });
+        }
+
+        const hire = job.hires.find(h => h.freelancer.toString() === freelancerId);
+        if (!hire) return res.status(404).json({ message: 'Contract not found' });
+
+        if (hire.status === 'completed' && hire.escrowAmount === 0) {
             return res.status(400).json({ message: 'Already paid' });
         }
 
         // Transfer funds
-        const tasker = await User.findById(job.hiredTasker);
+        const tasker = await User.findById(hire.freelancer);
         if (tasker) {
-            tasker.walletBalance += job.escrowAmount;
-            tasker.totalEarnings += job.escrowAmount;
+            tasker.walletBalance += hire.escrowAmount;
+            tasker.totalEarnings += hire.escrowAmount;
             tasker.completedProjects += 1;
             await tasker.save();
         }
 
-        job.jobStatus = 'paid';
-        job.escrowAmount = 0; // Released
-        await job.save();
+        hire.paidAmount += hire.escrowAmount;
+        hire.escrowAmount = 0; // Released
+        if (hire.progress >= 100) {
+            hire.status = 'completed';
+        }
 
+        await job.save();
         res.json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });

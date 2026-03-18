@@ -18,10 +18,11 @@ const JobPostPage = () => {
         startDate: '',
         durationValue: '',
         durationUnit: 'days',
+        positionsRequired: 1,
         screeningQuestions: ['']
     });
 
-    const { title, company, location, description, salary, startDate, durationValue, durationUnit, screeningQuestions } = formData;
+    const { title, company, location, description, salary, startDate, durationValue, durationUnit, positionsRequired, screeningQuestions } = formData;
 
     // AI Generation Logic (Simulated with Extraction)
     const handleAiGenerate = async () => {
@@ -51,6 +52,14 @@ const JobPostPage = () => {
                 extractedLocation = locationMatch[1].replace(/\b\w/g, l => l.toUpperCase()).trim();
             }
 
+            // 3. Extract Positions Required
+            let extractedPositions = 1;
+            const posMatch = details.match(/(\d+)\s+(people|freelancers|developers|designers|photographers|workers|persons|taskers|guys|girls)/i) ||
+                aiPrompt.role.match(/(\d+)\s+(people|freelancers|developers|designers|photographers|workers|persons|taskers|guys|girls)/i);
+            if (posMatch) {
+                extractedPositions = parseInt(posMatch[1], 10) || 1;
+            }
+
             // 3. Generate Description
             const generatedDescription = `We are searching for a skilled ${aiPrompt.role}.
             
@@ -76,6 +85,7 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
                 startDate: new Date().toISOString().split('T')[0], // Default to today
                 durationValue: '1',
                 durationUnit: 'days',
+                positionsRequired: extractedPositions,
                 screeningQuestions: [
                     `Do you have experience as a ${aiPrompt.role}?`,
                     `Are you comfortable working for ${extractedSalary}?`,
@@ -108,6 +118,7 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
             const payload = {
                 ...formData,
                 screeningQuestions: validQuestions,
+                positionsRequired: Number(positionsRequired),
                 duration: {
                     value: Number(durationValue),
                     unit: durationUnit
@@ -278,6 +289,22 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
                                             <option value="months">Months</option>
                                         </select>
                                     </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">Number of Freelancers Needed</label>
+                                    <input
+                                        type="number"
+                                        name="positionsRequired"
+                                        required
+                                        min="1"
+                                        value={positionsRequired}
+                                        onChange={onChange}
+                                        className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                        placeholder="e.g. 1"
+                                    />
                                 </div>
                             </div>
 

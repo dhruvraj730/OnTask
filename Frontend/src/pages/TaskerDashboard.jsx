@@ -231,6 +231,11 @@ const TaskerDashboard = () => {
                                                         Due {new Date(job.endDate).toLocaleDateString()}
                                                     </span>
                                                 )}
+                                                {(job.positionsRequired || 1) - (job.hires?.length || 0) > 0 && (
+                                                    <span className="px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-full">
+                                                        🔥 {Math.max(0, (job.positionsRequired || 1) - (job.hires?.length || 0))} Spots Left
+                                                    </span>
+                                                )}
                                                 <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded-full flex items-center gap-1">
                                                     <Zap className="w-3 h-3" /> Urgent
                                                 </span>
