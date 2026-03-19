@@ -50,6 +50,7 @@ app.use('/api/auth', require('./routes/authRoutes.js'));
 app.use('/api/jobs', require('./routes/jobRoutes.js'));
 app.use('/api/search', require('./routes/searchRoutes.js'));
 app.use('/api/messages', require('./routes/messageRoutes.js'));
+app.use('/api/notifications', require('./routes/notificationRoutes.js'));
 app.use('/api/payment', require('./routes/paymentRoutes.js'));
 app.use('/api/work', require('./routes/workRoutes.js'));
 app.use('/api/applications', require('./routes/applicationRoutes.js'));

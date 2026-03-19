@@ -1,13 +1,85 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import AuthContext from '../context/AuthContext';
 import { Button } from './ui/button';
-import { Search, Bell, MessageSquare, ChevronDown, User } from 'lucide-react';
+import { Search, Bell, MessageSquare, ChevronDown, User, CheckCircle } from 'lucide-react';
+import axios from 'axios';
 
 export function Header() {
     const { user, logout } = useContext(AuthContext);
     const navigate = useNavigate();
     const location = useLocation();
+
+    const [notifications, setNotifications] = useState([]);
+    const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+    const [showNotifications, setShowNotifications] = useState(false);
+    const notifRef = useRef(null);
+
+    const fetchNotifications = async () => {
+        const currentToken = localStorage.getItem('token');
+        if (!user || !currentToken) return;
+        try {
+            const resNotif = await axios.get('/api/notifications', {
+                headers: { Authorization: `Bearer ${currentToken}` }
+            });
+            setNotifications(resNotif.data);
+
+            const resMsg = await axios.get('/api/messages/unread-count', {
+                headers: { Authorization: `Bearer ${currentToken}` }
+            });
+            setUnreadMessageCount(resMsg.data.unreadCount);
+        } catch (error) {
+            console.error("Failed to fetch notifications/messages", error);
+        }
+    };
+
+    useEffect(() => {
+        fetchNotifications();
+        const intervalId = setInterval(fetchNotifications, 10000); // Poll every 10s
+        return () => clearInterval(intervalId);
+    }, [user]);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (notifRef.current && !notifRef.current.contains(event.target)) {
+                setShowNotifications(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleNotificationClick = async (notif) => {
+        const currentToken = localStorage.getItem('token');
+        if (!notif.read) {
+            try {
+                await axios.put(`/api/notifications/${notif._id}/read`, {}, {
+                    headers: { Authorization: `Bearer ${currentToken}` }
+                });
+                setNotifications(notifications.map(n => n._id === notif._id ? { ...n, read: true } : n));
+            } catch (error) {
+                console.error("Failed to mark notification as read");
+            }
+        }
+        setShowNotifications(false);
+        if (notif.link && !notif.link.startsWith('http')) {
+            navigate(notif.link);
+        }
+    };
+
+    const markAllRead = async () => {
+        const currentToken = localStorage.getItem('token');
+        try {
+            await axios.put(`/api/notifications/read-all`, {}, {
+                headers: { Authorization: `Bearer ${currentToken}` }
+            });
+            setNotifications(notifications.map(n => ({ ...n, read: true })));
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const unreadCount = notifications.filter(n => !n.read).length;
 
     const onLogout = () => {
         logout();
@@ -57,16 +129,73 @@ export function Header() {
                     {user ? (
                         <>
                             {/* Messages / Notifications */}
-                            <Link to="/messages" title="Messages" className="relative text-gray-500 hover:text-blue-600 transition-colors">
+                            <Link to="/messages" title="Messages" className="relative text-gray-500 hover:text-blue-600 transition-colors mt-1">
                                 <MessageSquare className="w-6 h-6" />
-                                {/* Placeholder for dynamic count */}
-                                {false && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full">0</span>}
+                                {unreadMessageCount > 0 && (
+                                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full animate-bounce shadow-sm">
+                                        {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+                                    </span>
+                                )}
                             </Link>
-                            <Link to="/applications" title="Interviews & Alerts" className="relative text-gray-500 hover:text-blue-600 transition-colors">
-                                <Bell className="w-6 h-6" />
-                                {/* Placeholder for dynamic count */}
-                                {false && <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full">0</span>}
-                            </Link>
+                            {/* Notifications Dropdown */}
+                            <div className="relative" ref={notifRef}>
+                                <button 
+                                    onClick={() => setShowNotifications(!showNotifications)} 
+                                    className="relative text-gray-500 hover:text-blue-600 transition-colors focus:outline-none flex items-center mt-1"
+                                >
+                                    <Bell className="w-6 h-6" />
+                                    {unreadCount > 0 && (
+                                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full animate-bounce">
+                                            {unreadCount}
+                                        </span>
+                                    )}
+                                </button>
+                                
+                                {showNotifications && (
+                                    <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white shadow-2xl rounded-2xl border border-gray-100 overflow-hidden z-50">
+                                        <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+                                            <h3 className="font-bold text-gray-900">Notifications</h3>
+                                            {unreadCount > 0 && (
+                                                <button onClick={markAllRead} className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                                                    <CheckCircle className="w-3 h-3" /> Mark all read
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="max-h-[60vh] overflow-y-auto">
+                                            {notifications.length === 0 ? (
+                                                <div className="p-6 text-center text-gray-500 text-sm">
+                                                    No notifications yet.
+                                                </div>
+                                            ) : (
+                                                notifications.map(notif => (
+                                                    <div 
+                                                        key={notif._id} 
+                                                        onClick={() => handleNotificationClick(notif)}
+                                                        className={`p-4 border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors flex gap-3 ${!notif.read ? 'bg-blue-50/30' : ''}`}
+                                                    >
+                                                        <div className="flex-1">
+                                                            <p className={`text-sm ${!notif.read ? 'font-bold text-gray-900' : 'text-gray-700'}`}>
+                                                                {notif.content}
+                                                            </p>
+                                                            {notif.type === 'interview' && notif.link && notif.link.startsWith('http') && (
+                                                                <a href={notif.link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="inline-block mt-2 text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md hover:bg-blue-100 transition-colors">
+                                                                    Join Interview
+                                                                </a>
+                                                            )}
+                                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-2">
+                                                                {new Date(notif.createdAt).toLocaleString()}
+                                                            </p>
+                                                        </div>
+                                                        {!notif.read && (
+                                                            <div className="w-2 h-2 bg-blue-600 rounded-full mt-1 flex-shrink-0"></div>
+                                                        )}
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
 
                             {/* Dropdowns */}
                             <div className="flex items-center gap-6">

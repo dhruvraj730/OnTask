@@ -1,5 +1,6 @@
 const Job = require('../models/Job');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 
 // @desc    Get all jobs
 // @route   GET /api/jobs
@@ -324,6 +325,16 @@ const scheduleInterview = async (req, res) => {
         application.status = 'interviewing';
 
         await job.save();
+
+        // Create Notification
+        await Notification.create({
+            recipient: applicantId,
+            sender: req.user.id,
+            type: 'interview',
+            content: `You have been invited to an interview for the job: ${job.title}.`,
+            link: interviewLink
+        });
+
         res.status(200).json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -409,6 +420,16 @@ const hireApplicant = async (req, res) => {
         }
 
         await job.save();
+
+        // Create Notification
+        await Notification.create({
+            recipient: applicantId,
+            sender: req.user.id,
+            type: 'application_update',
+            content: `Congratulations! You have been hired for the job: ${job.title}.`,
+            link: `/project/${job._id}`
+        });
+
         res.status(200).json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -446,6 +467,16 @@ const rejectApplicant = async (req, res) => {
         application.status = 'rejected';
 
         await job.save();
+
+        // Create Notification
+        await Notification.create({
+            recipient: applicantId,
+            sender: req.user.id,
+            type: 'application_update',
+            content: `Your application for the job ${job.title} has been rejected.`,
+            link: `/applications`
+        });
+
         console.log("[Reject] Application rejected successfully");
         res.status(200).json(job);
     } catch (error) {
@@ -643,6 +674,16 @@ const proposeNegotiation = async (req, res) => {
         application.offeredBudgetStatus = 'pending';
 
         await job.save();
+
+        // Create Notification
+        await Notification.create({
+            recipient: applicantId,
+            sender: req.user.id,
+            type: 'negotiation',
+            content: `The organizer has proposed a revised budget of ₹${amount} for ${job.title}.`,
+            link: `/applications`
+        });
+
         res.status(200).json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -672,6 +713,16 @@ const respondToNegotiation = async (req, res) => {
         application.offeredBudgetStatus = action === 'accept' ? 'accepted' : 'rejected';
 
         await job.save();
+
+        // Create Notification for employer
+        await Notification.create({
+            recipient: job.employer,
+            sender: req.user.id,
+            type: 'negotiation',
+            content: `A freelancer has ${action}ed the negotiated budget for ${job.title}.`,
+            link: `/jobs/${job._id}/applications`
+        });
+
         res.status(200).json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });

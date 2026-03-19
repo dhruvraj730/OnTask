@@ -14,7 +14,7 @@ const MessagesPage = () => {
 
     // Check for userId passed via state (from "Interview" button)
     const location = useLocation();
-    const initialChatUserId = location.state?.userId;
+    const initialChatUserId = location.state?.recipientId || location.state?.userId;
 
     useEffect(() => {
         fetchConversations();
@@ -64,6 +64,17 @@ const MessagesPage = () => {
         }
     };
 
+    const markAsRead = async (userId) => {
+        try {
+            const token = localStorage.getItem('token');
+            await axios.put(`/api/messages/${userId}/read`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+        } catch (error) {
+            console.error("Error marking messages as read:", error);
+        }
+    };
+
     const fetchMessages = async (userId) => {
         try {
             const token = localStorage.getItem('token');
@@ -71,6 +82,12 @@ const MessagesPage = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setMessages(res.data);
+            
+            // Mark as read if there are unread messages for the current user
+            const hasUnread = res.data.some(m => !m.read && (m.recipient === user._id || m.recipient?._id === user._id));
+            if (hasUnread) {
+                await markAsRead(userId);
+            }
         } catch (error) {
             console.error(error);
         }
@@ -141,7 +158,7 @@ const MessagesPage = () => {
                             <div className="flex-1 overflow-y-auto p-4 space-y-4">
                                 {messages.map((msg, idx) => (
                                     <div key={idx} className={`flex ${msg.sender._id === user._id || msg.sender === user._id ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-[70%] p-3 rounded-2xl text-sm shadow-sm ${msg.sender._id === user._id || msg.sender === user._id
+                                        <div className={`max-w-[70%] p-3 rounded-2xl text-sm shadow-sm whitespace-pre-wrap ${msg.sender._id === user._id || msg.sender === user._id
                                             ? 'bg-blue-600 text-white rounded-tr-none'
                                             : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
                                             }`}>
@@ -153,14 +170,26 @@ const MessagesPage = () => {
                             </div>
 
                             {/* Input */}
-                            <form onSubmit={handleSend} className="p-4 bg-white border-t border-gray-200 flex gap-2">
-                                <input
-                                    className="flex-1 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                                    placeholder="Type a message..."
+                            <form onSubmit={handleSend} className="p-4 bg-white border-t border-gray-200 flex gap-2 items-end">
+                                <textarea
+                                    className="flex-1 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none max-h-32 min-h-[48px]"
+                                    placeholder="Type a message... (Shift+Enter for new line)"
+                                    rows="1"
                                     value={newMessage}
-                                    onChange={(e) => setNewMessage(e.target.value)}
+                                    onChange={(e) => {
+                                        setNewMessage(e.target.value);
+                                        e.target.style.height = 'inherit';
+                                        e.target.style.height = `${Math.min(e.target.scrollHeight, 128)}px`;
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleSend(e);
+                                            e.target.style.height = 'inherit'; // reset height on send
+                                        }
+                                    }}
                                 />
-                                <button type="submit" className="px-6 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors">
+                                <button type="submit" className="h-[48px] px-6 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shrink-0">
                                     Send
                                 </button>
                             </form>

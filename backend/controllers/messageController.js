@@ -93,8 +93,44 @@ const getMessagesWithUser = async (req, res) => {
     }
 };
 
+// @desc    Get unread message count
+// @route   GET /api/messages/unread-count
+// @access  Private
+const getUnreadCount = async (req, res) => {
+    try {
+        const count = await Message.countDocuments({
+            recipient: req.user.id,
+            read: false
+        });
+        res.json({ unreadCount: count });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Mark messages as read
+// @route   PUT /api/messages/:userId/read
+// @access  Private
+const markMessagesAsRead = async (req, res) => {
+    try {
+        const senderId = req.params.userId;
+        const myId = req.user.id;
+
+        await Message.updateMany(
+            { sender: senderId, recipient: myId, read: false },
+            { $set: { read: true } }
+        );
+
+        res.json({ message: 'Messages marked as read' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     sendMessage,
     getConversations,
-    getMessagesWithUser
+    getMessagesWithUser,
+    getUnreadCount,
+    markMessagesAsRead
 };
