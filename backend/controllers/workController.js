@@ -1,5 +1,6 @@
 const Job = require('../models/Job');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 
 // @desc    Hire a tasker
 // @route   POST /api/work/:jobId/hire/:userId
@@ -31,6 +32,16 @@ const hireTasker = async (req, res) => {
         }
 
         await job.save();
+
+        // Create notification for freelancer
+        await Notification.create({
+            recipient: req.params.userId,
+            sender: req.user._id,
+            type: 'application_update',
+            content: `Congratulations! You have been hired for the job: ${job.title}.`,
+            link: `/project/${job._id}`
+        });
+
         res.json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -59,6 +70,16 @@ const addProgress = async (req, res) => {
         hire.progressUpdates.push({ imageUrl, description, proposedProgress, status: 'pending' });
 
         await job.save();
+
+        // Create notification for employer
+        await Notification.create({
+            recipient: (job.employer._id || job.employer),
+            sender: req.user._id,
+            type: 'progress_submitted',
+            content: `New progress update from ${req.user.name} for "${job.title}"`,
+            link: `/project/${job._id}`
+        });
+
         res.json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -101,6 +122,16 @@ const approveProgress = async (req, res) => {
         }
 
         await job.save();
+
+        // Create notification for freelancer
+        await Notification.create({
+            recipient: (targetHire.freelancer._id || targetHire.freelancer),
+            sender: req.user._id,
+            type: 'progress_verified',
+            content: `Your progress update for ${job.title} has been approved${update.verifiedProgress !== update.proposedProgress ? ' (revised to ' + update.verifiedProgress + '%)' : ''}.`,
+            link: `/project/${job._id}`
+        });
+
         res.json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -132,6 +163,15 @@ const rejectProgress = async (req, res) => {
         update.rejectionReason = rejectionReason || 'No reason provided';
         await job.save();
 
+        // Create Notification for freelancer
+        await Notification.create({
+            recipient: (update.freelancer?._id || update.freelancer || (job.hires.find(h => h.progressUpdates.id(req.params.updateId))?.freelancer)),
+            sender: req.user._id,
+            type: 'progress_verified',
+            content: `Your progress update for ${job.title} has been rejected: ${rejectionReason || 'No reason provided'}`,
+            link: `/project/${job._id}`
+        });
+
         res.json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -154,6 +194,16 @@ const completeJob = async (req, res) => {
         hire.verifiedProgress = 100;
 
         await job.save();
+
+        // Create notification for employer
+        await Notification.create({
+            recipient: (job.employer._id || job.employer),
+            sender: req.user._id,
+            type: 'progress_submitted',
+            content: `${req.user.name} has marked the job "${job.title}" as completed. Please review and release payment.`,
+            link: `/pro/job/${job._id}/applications`
+        });
+
         res.json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -200,6 +250,16 @@ const releasePayment = async (req, res) => {
         }
 
         await job.save();
+
+        // Create notification for freelancer
+        await Notification.create({
+            recipient: (hire.freelancer._id || hire.freelancer || freelancerId),
+            sender: req.user._id,
+            type: 'system',
+            content: `Payment of ₹${hire.paidAmount} has been released for ${job.title}.`,
+            link: `/project/${job._id}`
+        });
+
         res.json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });

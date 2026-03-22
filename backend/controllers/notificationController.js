@@ -5,7 +5,7 @@ const Notification = require('../models/Notification');
 // @access  Private
 const getNotifications = async (req, res) => {
     try {
-        const notifications = await Notification.find({ recipient: req.user.id })
+        const notifications = await Notification.find({ recipient: req.user._id })
             .sort({ createdAt: -1 })
             .populate('sender', 'name profileImage');
         res.json(notifications);
@@ -45,7 +45,7 @@ const markAsRead = async (req, res) => {
 const markAllAsRead = async (req, res) => {
     try {
         await Notification.updateMany(
-            { recipient: req.user.id, read: false },
+            { recipient: req.user._id, read: false },
             { $set: { read: true } }
         );
         res.json({ message: 'All notifications marked as read' });

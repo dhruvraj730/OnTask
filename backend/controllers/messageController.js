@@ -12,6 +12,10 @@ const sendMessage = async (req, res) => {
             return res.status(400).json({ message: 'Recipient and content are required' });
         }
 
+        if (recipientId === req.user.id) {
+            return res.status(400).json({ message: 'You cannot send a message to yourself' });
+        }
+
         // Safety Check: Restricted Keywords
         const restrictedKeywords = ['email', 'phone', '@', 'pay', 'whatsapp', 'call me', 'contact me'];
         const contentLower = content.toLowerCase();
@@ -53,9 +57,20 @@ const getConversations = async (req, res) => {
 
         // Extract unique user IDs involved
         const uniqueUserIds = new Set();
+        const currentUserId = req.user._id || req.user.id;
+        const currentUserIdStr = currentUserId.toString();
+        
         messages.forEach(msg => {
-            const otherUser = msg.sender.toString() === userId ? msg.recipient.toString() : msg.sender.toString();
-            uniqueUserIds.add(otherUser);
+            const senderId = msg.sender?._id || msg.sender;
+            const recipientId = msg.recipient?._id || msg.recipient;
+            
+            if (!senderId || !recipientId) return;
+            
+            const senderStr = senderId.toString();
+            const recipientStr = recipientId.toString();
+            
+            if (senderStr !== currentUserIdStr) uniqueUserIds.add(senderStr);
+            if (recipientStr !== currentUserIdStr) uniqueUserIds.add(recipientStr);
         });
 
         // Get user details

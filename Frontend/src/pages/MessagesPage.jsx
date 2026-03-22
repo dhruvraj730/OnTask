@@ -51,13 +51,18 @@ const MessagesPage = () => {
             const res = await axios.get('/api/messages/conversations', {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setConversations(res.data);
+            if (!user) return;
+            const myId = user._id || user.id;
+            const filteredConversations = res.data.filter(c => c._id.toString() !== myId.toString());
+            setConversations(filteredConversations);
 
-            // If checking for initial chat user who is NOT in list yet (new interview)
-            if (initialChatUserId && !res.data.find(c => c._id === initialChatUserId)) {
-                // Creating a "fake" conversation object to start chat
-                // In production, fetch this user's data from an API
+            // If checking for initial chat user who is NOT in list yet
+            const targetId = initialChatUserId?.toString();
+            if (targetId && targetId !== myId.toString() && !filteredConversations.find(c => c._id.toString() === targetId)) {
                 setCurrentChat({ _id: initialChatUserId, name: location.state?.recipientName || location.state?.userName || 'New Chat' });
+            } else if (targetId && filteredConversations.find(c => c._id.toString() === targetId)) {
+                // If it exists now, use the real object
+                setCurrentChat(filteredConversations.find(c => c._id.toString() === targetId));
             }
         } catch (error) {
             console.error(error);
@@ -82,9 +87,9 @@ const MessagesPage = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setMessages(res.data);
-            
+
             // Mark as read if there are unread messages for the current user
-            const hasUnread = res.data.some(m => !m.read && (m.recipient === user._id || m.recipient?._id === user._id));
+            const hasUnread = res.data.some(m => !m.read && (m.recipient === (user?._id || user?.id) || m.recipient?._id === (user?._id || user?.id)));
             if (hasUnread) {
                 await markAsRead(userId);
             }
@@ -114,10 +119,12 @@ const MessagesPage = () => {
             if (error.response && error.response.status === 400 && error.response.data.message.includes('blocked')) {
                 alert("⚠️ " + error.response.data.message);
             } else {
-                alert("Failed to send message");
+                alert("Failed to send message: " + (error.response?.data?.message || error.message));
             }
         }
     };
+
+    if (!user) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading chat...</div>;
 
     return (
         <div className="min-h-screen bg-gray-50 pt-6 pb-12 px-4 sm:px-6 lg:px-8 h-screen flex flex-col">
@@ -137,7 +144,7 @@ const MessagesPage = () => {
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-gray-900">{c.name}</h3>
-                                    <p className="text-xs text-gray-500 capitalize">{c.role?.replace('_', ' ')}</p>
+                                    <p className="text-xs text-gray-500 capitalize">{c.role === 'employer' ? 'Provider' : c.role?.replace('_', ' ')}</p>
                                 </div>
                             </div>
                         ))}

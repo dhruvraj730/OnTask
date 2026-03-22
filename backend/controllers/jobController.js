@@ -58,6 +58,21 @@ const createJob = async (req, res) => {
 
         console.log('[DEBUG] Job created in DB:', JSON.stringify(job, null, 2));
 
+        // Create notification for all job seekers
+        try {
+            const jobSeekers = await User.find({ role: 'job_seeker' }, '_id');
+            const notifications = jobSeekers.map(js => ({
+                recipient: js._id,
+                sender: req.user._id,
+                type: 'new_job',
+                content: `New job posted: ${title}. Check it out!`,
+                link: `/project/${job._id}`
+            }));
+            await Notification.insertMany(notifications);
+        } catch (notifErr) {
+            console.error("Failed to send job alerts:", notifErr);
+        }
+
         res.status(201).json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -185,6 +200,15 @@ const releasePayment = async (req, res) => {
 
         job.markModified('hires');
         await job.save();
+
+        // Create notification for freelancer
+        await Notification.create({
+            recipient: freelancerId,
+            sender: req.user._id,
+            type: 'system',
+            content: `Payment of ₹${amountToPay} has been released for ${job.title} (${type} payment).`,
+            link: `/project/${job._id}`
+        });
 
         res.status(200).json({
             message: `Payment of ₹${amountToPay} released successfully to ${freelancer?.name}`,
@@ -328,8 +352,8 @@ const scheduleInterview = async (req, res) => {
 
         // Create Notification
         await Notification.create({
-            recipient: applicantId,
-            sender: req.user.id,
+            recipient: (application.applicant._id || application.applicant),
+            sender: req.user._id,
             type: 'interview',
             content: `You have been invited to an interview for the job: ${job.title}.`,
             link: interviewLink
@@ -423,8 +447,8 @@ const hireApplicant = async (req, res) => {
 
         // Create Notification
         await Notification.create({
-            recipient: applicantId,
-            sender: req.user.id,
+            recipient: (application.applicant._id || application.applicant),
+            sender: req.user._id,
             type: 'application_update',
             content: `Congratulations! You have been hired for the job: ${job.title}.`,
             link: `/project/${job._id}`
@@ -470,8 +494,8 @@ const rejectApplicant = async (req, res) => {
 
         // Create Notification
         await Notification.create({
-            recipient: applicantId,
-            sender: req.user.id,
+            recipient: (application.applicant._id || application.applicant),
+            sender: req.user._id,
             type: 'application_update',
             content: `Your application for the job ${job.title} has been rejected.`,
             link: `/applications`
@@ -520,6 +544,16 @@ const addJobUpdate = async (req, res) => {
         hire.progressUpdates.push(newUpdate);
 
         await job.save();
+
+        // Create Notification for employer
+        await Notification.create({
+            recipient: (job.employer._id || job.employer),
+            sender: req.user._id,
+            type: 'progress_submitted',
+            content: `New progress update from ${req.user.name} for "${job.title}"`,
+            link: `/project/${job._id}`
+        });
+
         res.status(200).json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -591,6 +625,25 @@ const verifyJobUpdate = async (req, res) => {
 
         job.markModified('hires');
         await job.save();
+
+        // Create Notification for the freelancer
+        const statusText = action === 'approve' ? 'approved' : 'rejected';
+        let customContent = `Your progress update for ${job.title} has been ${statusText}`;
+        
+        if (action === 'approve' && update.verifiedProgress !== update.proposedProgress) {
+            customContent += ` (revised to ${update.verifiedProgress}%)`;
+        } else if (action === 'reject' && rejectionReason) {
+            customContent += `: ${rejectionReason}`;
+        }
+
+        await Notification.create({
+            recipient: (targetHire.freelancer._id || targetHire.freelancer),
+            sender: req.user._id,
+            type: 'progress_verified',
+            content: customContent,
+            link: `/project/${job._id}`
+        });
+
         res.status(200).json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -649,6 +702,15 @@ const applyForJob = async (req, res) => {
         job.applications.push(application);
         await job.save();
 
+        // Create Notification for employer
+        await Notification.create({
+            recipient: (job.employer._id || job.employer),
+            sender: req.user._id,
+            type: 'application_received',
+            content: `${req.user.name} has applied for your job: ${job.title}`,
+            link: `/pro/job/${job._id}/applications`
+        });
+
         res.status(200).json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -677,8 +739,8 @@ const proposeNegotiation = async (req, res) => {
 
         // Create Notification
         await Notification.create({
-            recipient: applicantId,
-            sender: req.user.id,
+            recipient: (application.applicant._id || application.applicant),
+            sender: req.user._id,
             type: 'negotiation',
             content: `The organizer has proposed a revised budget of ₹${amount} for ${job.title}.`,
             link: `/applications`
@@ -716,11 +778,11 @@ const respondToNegotiation = async (req, res) => {
 
         // Create Notification for employer
         await Notification.create({
-            recipient: job.employer,
-            sender: req.user.id,
+            recipient: (job.employer._id || job.employer),
+            sender: req.user._id,
             type: 'negotiation',
             content: `A freelancer has ${action}ed the negotiated budget for ${job.title}.`,
-            link: `/jobs/${job._id}/applications`
+            link: `/pro/job/${job._id}/applications`
         });
 
         res.status(200).json(job);
