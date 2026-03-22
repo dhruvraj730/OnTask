@@ -166,7 +166,7 @@ const FreelancerSignup = () => {
                 <div className="text-center mb-8">
                     <h2 className="text-3xl font-bold text-green-600">OnTask</h2>
                     <p className="mt-2 text-lg text-gray-700 font-semibold">
-                        Join as Freelancer - Step {step} of {totalSteps}
+                        Join as Job Seeker - Step {step} of {totalSteps}
                     </p>
                 </div>
 

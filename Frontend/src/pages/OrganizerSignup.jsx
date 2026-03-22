@@ -170,7 +170,7 @@ const OrganizerSignup = () => {
                 <div className="text-center mb-8">
                     <h2 className="text-3xl font-bold text-blue-600">OnTask</h2>
                     <p className="mt-2 text-lg text-gray-700 font-semibold">
-                        Join as Organizer - Step {step} of {totalSteps}
+                        Join as Provider- Step {step} of {totalSteps}
                     </p>
                 </div>
 

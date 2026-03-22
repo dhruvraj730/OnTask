@@ -426,9 +426,30 @@ const MyApplicationsPage = () => {
                                                     COMPLETED
                                                 </span>
                                             </div>
-                                            <div className="mt-4 text-sm text-gray-500">
+                                            <div className="mt-4 text-sm text-gray-500 mb-6">
                                                 Completed on: {job.updatedAt ? new Date(job.updatedAt).toLocaleDateString() : 'Unknown date'}
                                             </div>
+
+                                            {/* Client Feedback Section */}
+                                            {(() => {
+                                                const myHire = job.hires?.find(h => (h.freelancer?._id?.toString() || h.freelancer?.toString()) === (user?._id?.toString() || user?.id?.toString()));
+                                                if (myHire && myHire.hasBeenReviewed) {
+                                                    return (
+                                                        <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-xl animate-in slide-in-from-left-2 transition-all">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <h3 className="text-sm font-bold text-blue-900 uppercase tracking-wider">Client Feedback</h3>
+                                                                <div className="flex items-center text-amber-500 font-bold text-sm bg-white px-2 py-0.5 rounded-full shadow-sm">
+                                                                    {myHire.review?.rating || 0} ⭐
+                                                                </div>
+                                                            </div>
+                                                            <p className="text-sm text-blue-800 italic leading-relaxed">
+                                                                "{myHire.review?.comment || 'The client didn\'t leave a written comment, but gave you a rating!'}"
+                                                            </p>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
 
                                             {job.progressUpdates && job.progressUpdates.length > 0 && (
                                                 <div className="mt-6">

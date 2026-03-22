@@ -1,10 +1,11 @@
 import { useState, useEffect, useContext } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, CheckCircle, Clock, User, MessageSquare, Image as ImageIcon, Plus, Send } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Clock, User, MessageSquare, Image as ImageIcon, Plus, Send, Star } from 'lucide-react';
 import GlassContainer from '../components/premium/GlassContainer';
 import AuthContext from '../context/AuthContext';
 import PaymentModal from '../components/PaymentModal';
+import FeedbackModal from '../components/FeedbackModal';
 
 const ProjectDetailPage = () => {
     const { id } = useParams();
@@ -20,6 +21,8 @@ const ProjectDetailPage = () => {
     const [hasApplied, setHasApplied] = useState(false);
     const [reviewModal, setReviewModal] = useState({ open: false, updateId: null, action: '', reason: '', overriddenProgress: 0, currentProgressMax: 0 });
     const [payModalHire, setPayModalHire] = useState(null);
+    const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+    const [feedbackTarget, setFeedbackTarget] = useState(null);
 
     const fetchProject = async () => {
         try {
@@ -78,7 +81,7 @@ const ProjectDetailPage = () => {
     const handleConfirmReview = async () => {
         try {
             const { updateId, action, reason, overriddenProgress } = reviewModal;
-            await axios.put(`/api/jobs/${id}/update/${updateId}/verify`, {
+            const res = await axios.put(`/api/jobs/${id}/update/${updateId}/verify`, {
                 action,
                 rejectionReason: action === 'reject' ? reason : undefined,
                 overrideProgress: action === 'approve' ? Number(overriddenProgress) : undefined
@@ -86,9 +89,25 @@ const ProjectDetailPage = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            await fetchProject();
+            // The backend returns the updated job object
+            const updatedJob = res.data;
+            setProject(updatedJob);
+
             setReviewModal({ open: false, updateId: null, action: '', reason: '', overriddenProgress: 0, currentProgressMax: 0 });
-            alert(`Update ${action}d successfully`);
+            
+            // Check if this approval reached 100% for the hire
+            if (action === 'approve') {
+                const hireWithUpdate = updatedJob.hires.find(h => 
+                    h.progressUpdates.some(u => (u._id?.toString() || u._id) === updateId.toString())
+                );
+                
+                if (hireWithUpdate && hireWithUpdate.progress >= 100 && !hireWithUpdate.hasBeenReviewed) {
+                    setFeedbackTarget(hireWithUpdate);
+                    setFeedbackModalOpen(true);
+                }
+            }
+
+            alert(`Update ${action}ed successfully`);
         } catch (err) {
             alert(err.response?.data?.message || `Error verifying update`);
         }
@@ -353,6 +372,20 @@ const ProjectDetailPage = () => {
                                                     ></div>
                                                 </div>
                                             </div>
+
+                                            {(hire.status === 'completed' || hire.progress >= 100) && !hire.hasBeenReviewed && (
+                                                <div className="mt-6 pt-4 border-t border-gray-100 text-center">
+                                                    <button
+                                                        onClick={() => {
+                                                            setFeedbackTarget(hire);
+                                                            setFeedbackModalOpen(true);
+                                                        }}
+                                                        className="px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 mx-auto"
+                                                    >
+                                                        <Star className="w-5 h-5 fill-current" /> Complete Task & Leave Feedback
+                                                    </button>
+                                                </div>
+                                            )}
                                         </GlassContainer>
 
                                         <div className="space-y-6">
@@ -586,7 +619,29 @@ const ProjectDetailPage = () => {
                 hire={payModalHire}
                 isOpen={!!payModalHire}
                 onClose={() => setPayModalHire(null)}
-                onSuccess={fetchProject}
+                onSuccess={(updatedJob, isFull) => {
+                    if (updatedJob) setProject(updatedJob);
+                    else fetchProject();
+
+                    if (isFull && payModalHire) {
+                        const targetFreelancerId = payModalHire.freelancer?._id || payModalHire.freelancer;
+                        const freshHire = updatedJob?.hires.find(h => (h.freelancer?._id || h.freelancer) === targetFreelancerId);
+                        if (freshHire && !freshHire.hasBeenReviewed) {
+                            setFeedbackTarget(freshHire);
+                            setFeedbackModalOpen(true);
+                        }
+                    }
+                }}
+            />
+
+            {/* Feedback Modal */}
+            <FeedbackModal
+                isOpen={feedbackModalOpen}
+                onClose={() => { setFeedbackModalOpen(false); setFeedbackTarget(null); }}
+                freelancerId={feedbackTarget?.freelancer?._id}
+                freelancerName={feedbackTarget?.freelancer?.name}
+                jobId={id}
+                onFeedbackSubmitted={fetchProject}
             />
         </div>
     );

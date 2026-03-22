@@ -20,11 +20,11 @@ const PaymentModal = ({ job, hire, isOpen, onClose, onSuccess }) => {
     const handleReleasePayment = async () => {
         try {
             const freelancerId = hire.freelancer._id || hire.freelancer;
-            await axios.put(`/api/jobs/${job._id}/pay`, { type: payType, freelancerId }, {
+            const res = await axios.put(`/api/jobs/${job._id}/pay`, { type: payType, freelancerId }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             alert(`${payType === 'full' ? 'Full' : 'Partial'} payment of ₹${currentAmount} released successfully!`);
-            if (onSuccess) onSuccess();
+            if (onSuccess) onSuccess(res.data.job, payType === 'full');
             onClose();
         } catch (err) {
             alert(err.response?.data?.message || "Error releasing payment");

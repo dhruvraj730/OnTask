@@ -201,6 +201,12 @@ const releasePayment = async (req, res) => {
         job.markModified('hires');
         await job.save();
 
+        // Populate details for the frontend
+        const populatedJob = await Job.findById(job._id)
+            .populate('employer', 'name email company')
+            .populate('hires.freelancer', 'name email skills hourlyRate avatar')
+            .populate('applications.applicant', 'name email skills hourlyRate bio assessmentScore rating completedProjects totalEarnings experience');
+
         // Create notification for freelancer
         await Notification.create({
             recipient: freelancerId,
@@ -212,7 +218,7 @@ const releasePayment = async (req, res) => {
 
         res.status(200).json({
             message: `Payment of ₹${amountToPay} released successfully to ${freelancer?.name}`,
-            job
+            job: populatedJob
         });
     } catch (error) {
         console.error("Error in releasePayment:", error);
@@ -225,12 +231,18 @@ const releasePayment = async (req, res) => {
 // @access  Private (Employer only)
 const getMyJobs = async (req, res) => {
     try {
-        if (req.user.role !== 'employer') {
-            return res.status(403).json({ message: 'Not authorized as an employer' });
+        let query = {};
+        if (req.user.role === 'employer') {
+            query = { employer: req.user.id };
+        } else if (req.user.role === 'job_seeker') {
+            query = { 'hires.freelancer': req.user.id };
+        } else {
+            return res.status(403).json({ message: 'Invalid role' });
         }
 
-        const jobs = await Job.find({ employer: req.user.id })
-            .populate('hires.freelancer', 'name email skills hourlyRate')
+        const jobs = await Job.find(query)
+            .populate('employer', 'name email company avatar')
+            .populate('hires.freelancer', 'name email skills hourlyRate avatar')
             .populate('applications.applicant', 'name email skills hourlyRate');
 
         // Apply fallback for 0 budgets in existing hires
@@ -624,7 +636,24 @@ const verifyJobUpdate = async (req, res) => {
         }
 
         job.markModified('hires');
+
+        // Auto-complete the entire job if all positions are filled and all hires are 100%
+        const positionsRequired = Number(job.positionsRequired) || 1;
+        if (job.hires.length >= positionsRequired) {
+            const allFinished = job.hires.every(h => h.progress >= 100);
+            if (allFinished) {
+                job.jobStatus = 'completed';
+            }
+        }
+
         await job.save();
+
+        // Populate details for the frontend
+        const populatedJob = await Job.findById(job._id)
+            .populate('employer', 'name email company')
+            .populate('hires.freelancer', 'name email skills hourlyRate avatar')
+            .populate('applications.applicant', 'name email skills hourlyRate bio assessmentScore rating completedProjects totalEarnings experience');
+
 
         // Create Notification for the freelancer
         const statusText = action === 'approve' ? 'approved' : 'rejected';
@@ -644,7 +673,7 @@ const verifyJobUpdate = async (req, res) => {
             link: `/project/${job._id}`
         });
 
-        res.status(200).json(job);
+        res.status(200).json(populatedJob);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

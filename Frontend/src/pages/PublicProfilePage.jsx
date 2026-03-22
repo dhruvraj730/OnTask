@@ -101,6 +101,7 @@ const PublicProfilePage = () => {
                     <TabButton name="Overview" />
                     <TabButton name="Portfolio" />
                     <TabButton name="Skills" />
+                    <TabButton name="Reviews" />
                 </div>
 
                 {/* Tab Content */}
@@ -143,6 +144,27 @@ const PublicProfilePage = () => {
                                 )}
                             </div>
                         </GlassContainer>
+                    )}
+
+                    {activeTab === 'Reviews' && (
+                        <div className="space-y-4">
+                            {profile.reviews && profile.reviews.length > 0 ? profile.reviews.map((review, idx) => (
+                                <GlassContainer key={idx} className="p-6 border border-gray-100 shadow-lg">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div>
+                                            <h3 className="text-lg font-bold text-gray-900">{review.reviewerName || 'Client'}</h3>
+                                            <p className="text-sm text-gray-500">{new Date(review.date).toLocaleDateString()}</p>
+                                        </div>
+                                        <div className="flex items-center gap-1 font-bold text-yellow-500 bg-yellow-50 px-3 py-1 rounded-full text-sm">
+                                            <Star className="w-4 h-4 fill-current" /> {review.rating}
+                                        </div>
+                                    </div>
+                                    <p className="text-gray-700 mt-3 italic">"{review.comment}"</p>
+                                </GlassContainer>
+                            )) : (
+                                <p className="text-center py-10 text-gray-500">No reviews yet.</p>
+                            )}
+                        </div>
                     )}
                 </div>
 

@@ -56,6 +56,8 @@ app.use('/api/work', require('./routes/workRoutes.js'));
 app.use('/api/applications', require('./routes/applicationRoutes.js'));
 app.use('/api/wallet', require('./routes/walletRoutes.js'));
 app.use('/api/users', require('./routes/userRoutes.js'));
+app.use('/api/reviews', require('./routes/reviewRoutes.js'));
+app.use('/api/app-feedback', require('./routes/appFeedbackRoutes.js'));
 
 app.get('/', (req, res) => res.send('OnTask Backend is running'));
 

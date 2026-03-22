@@ -60,9 +60,11 @@ const MyJobsPage = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
                 <div className="flex justify-between items-center mb-8">
                     <h1 className="text-3xl font-bold text-gray-900">My Jobs</h1>
-                    <Link to="/pro/job/create" className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors">
-                        Post New Job
-                    </Link>
+                    {user.role === 'employer' && (
+                        <Link to="/pro/job/create" className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors">
+                            Post New Job
+                        </Link>
+                    )}
                 </div>
 
                 {/* Tabs */}
@@ -160,6 +162,28 @@ const MyJobsPage = () => {
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Feedback for Job Seeker */}
+                                    {user.role === 'job_seeker' && job.jobStatus === 'completed' && job.hires?.some(h => (h.freelancer?._id?.toString() || h.freelancer?.toString()) === (user?._id?.toString() || user?.id?.toString())) && (
+                                        <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-xl animate-in slide-in-from-left-2 transition-all">
+                                            {(() => {
+                                                const myHire = job.hires.find(h => (h.freelancer?._id?.toString() || h.freelancer?.toString()) === (user?._id?.toString() || user?.id?.toString()));
+                                                return (
+                                                    <>
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <h3 className="text-sm font-bold text-blue-900 uppercase tracking-wider">Client Feedback</h3>
+                                                            <div className="flex items-center text-amber-500 font-bold text-sm bg-white px-2 py-0.5 rounded-full shadow-sm">
+                                                                {myHire.review?.rating || 0} ⭐
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-sm text-blue-800 italic leading-relaxed">
+                                                            "{myHire.review?.comment || 'The client didn\'t leave a written comment, but gave you a rating!'}"
+                                                        </p>
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
+                                    )}
 
                                     {(job.jobStatus === 'in_progress' || job.jobStatus === 'completed') && (
                                         <div className="mb-8">
@@ -269,11 +293,13 @@ const MyJobsPage = () => {
                                                 )}
                                             </button>
                                         </Link>
-                                        <Link to={`/pro/job/${job._id}/applications`} className="flex-1">
-                                            <button className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-lg transition-colors">
-                                                Applications ({job.applications?.length || 0})
-                                            </button>
-                                        </Link>
+                                        {user.role === 'employer' && (
+                                            <Link to={`/pro/job/${job._id}/applications`} className="flex-1">
+                                                <button className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-lg transition-colors">
+                                                    Applications ({job.applications?.length || 0})
+                                                </button>
+                                            </Link>
+                                        )}
                                     </div>
                                 </div>
                             );

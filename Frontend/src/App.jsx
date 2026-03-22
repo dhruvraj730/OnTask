@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { Toaster } from 'react-hot-toast';
 import { Header } from './components/Header';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
@@ -32,6 +33,7 @@ function App() {
   return (
     <Router>
       <AuthProvider>
+        <Toaster position="top-center" reverseOrder={false} />
         <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
           <Header />
           <Routes>

@@ -144,6 +144,15 @@ const jobSchema = mongoose.Schema({
             type: Number,
             default: 0
         },
+        hasBeenReviewed: {
+            type: Boolean,
+            default: false
+        },
+        review: {
+            rating: Number,
+            comment: String,
+            date: { type: Date, default: Date.now }
+        },
         paymentHistory: [{
             amount: Number,
             type: {

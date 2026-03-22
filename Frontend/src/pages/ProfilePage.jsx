@@ -13,26 +13,44 @@ const ProfilePage = () => {
         bio: '',
         skills: '',
         hourlyRate: '',
-        experience: ''
+        experience: '',
+        reviews: []
     });
+    const [loading, setLoading] = useState(true);
+
+    const fetchUserData = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+            const res = await axios.get('/api/auth/profile', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const userData = res.data;
+            setProfileData({
+                name: userData.name || '',
+                email: userData.email || '',
+                bio: userData.bio || '',
+                skills: userData.skills ? (Array.isArray(userData.skills) ? userData.skills.join(', ') : userData.skills) : '',
+                hourlyRate: userData.hourlyRate || '',
+                experience: userData.experience || '',
+                companyName: userData.companyName || '',
+                industry: userData.industry || '',
+                website: userData.website || '',
+                hiringNeeds: userData.hiringNeeds ? (Array.isArray(userData.hiringNeeds) ? userData.hiringNeeds.join(', ') : userData.hiringNeeds) : '',
+                reviews: userData.reviews || [],
+                rating: userData.rating || 0
+            });
+            // Update the local user object if possible (though AuthContext might need a refresh function)
+        } catch (error) {
+            console.error("Error fetching user data:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        if (user) {
-            setProfileData({
-                name: user.name || '',
-                email: user.email || '',
-                bio: user.bio || '',
-                skills: user.skills ? (Array.isArray(user.skills) ? user.skills.join(', ') : user.skills) : '',
-                hourlyRate: user.hourlyRate || '',
-                experience: user.experience || '',
-                // Organizer Fields
-                companyName: user.companyName || '',
-                industry: user.industry || '',
-                website: user.website || '',
-                hiringNeeds: user.hiringNeeds ? (Array.isArray(user.hiringNeeds) ? user.hiringNeeds.join(', ') : user.hiringNeeds) : '',
-            });
-        }
-    }, [user]);
+        fetchUserData();
+    }, []);
 
     const onChange = (e) => {
         setProfileData({ ...profileData, [e.target.name]: e.target.value });
@@ -79,7 +97,7 @@ const ProfilePage = () => {
                             {user.role === 'job_seeker' && (
                                 <div className="mt-4 flex gap-4">
                                     <div className="text-center">
-                                        <p className="font-bold text-xl">{user.rating || 0} ⭐</p>
+                                        <p className="font-bold text-xl">{profileData.rating || 0} ⭐</p>
                                         <p className="text-xs text-gray-400">Rating</p>
                                     </div>
                                     <div className="text-center">
@@ -212,6 +230,33 @@ const ProfilePage = () => {
                             )}
                         </div>
                     </div>
+
+                    {/* Reviews Section for Job Seekers */}
+                    {user.role === 'job_seeker' && (
+                        <div className="mt-12 pt-8 border-t border-gray-100">
+                            <h3 className="text-2xl font-bold text-gray-900 mb-6 font-sans">Reviews from Organizers</h3>
+                            <div className="space-y-4">
+                                {profileData.reviews && profileData.reviews.length > 0 ? profileData.reviews.map((review, idx) => (
+                                    <div key={idx} className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <p className="font-bold text-gray-900">{review.reviewerName || 'Client'}</p>
+                                                <p className="text-xs text-gray-400 uppercase font-bold">{new Date(review.date).toLocaleDateString()}</p>
+                                            </div>
+                                            <div className="flex items-center gap-1 text-yellow-500 font-bold bg-white px-3 py-1 rounded-full shadow-sm text-sm">
+                                                <span className="text-lg">★</span> {review.rating}
+                                            </div>
+                                        </div>
+                                        <p className="text-gray-600 mt-2 italic font-sans text-sm">"{review.comment}"</p>
+                                    </div>
+                                )) : (
+                                    <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                        <p className="text-gray-400 font-medium">No reviews yet. Complete jobs to build your reputation!</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </GlassContainer>
             </div>
         </div>

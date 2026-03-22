@@ -57,14 +57,14 @@ const SignupPage = () => {
                         onClick={() => navigate('/signup/freelancer')}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${role === 'job_seeker' ? 'bg-green-100 text-green-700 ring-2 ring-green-500' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                     >
-                        I want to Work (Freelancer)
+                        I want to Work (Job Seeker)
                     </button>
                     <button
                         type="button"
                         onClick={() => navigate('/signup/organizer')}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${role === 'employer' ? 'bg-blue-100 text-blue-700 ring-2 ring-blue-500' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                     >
-                        I want to Hire (Employer)
+                        I want to Hire (Job Provider)
                     </button>
                 </div>
 
