@@ -24,6 +24,10 @@ const userSchema = mongoose.Schema({
         type: String,
         default: ''
     },
+    fcmToken: {
+        type: String,
+        default: ''
+    },
     otp: {
         type: String,
         default: ''

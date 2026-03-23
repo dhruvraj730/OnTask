@@ -1,4 +1,5 @@
 const Notification = require('../models/Notification');
+const User = require('../models/User');
 
 // @desc    Get user notifications
 // @route   GET /api/notifications
@@ -54,8 +55,30 @@ const markAllAsRead = async (req, res) => {
     }
 };
 
+// @desc    Save FCM token for push notifications
+// @route   PUT /api/notifications/fcm-token
+// @access  Private
+const saveFcmToken = async (req, res) => {
+    try {
+        const { fcmToken } = req.body;
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        user.fcmToken = fcmToken;
+        await user.save();
+
+        res.json({ message: 'FCM token saved successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     getNotifications,
     markAsRead,
-    markAllAsRead
+    markAllAsRead,
+    saveFcmToken
 };

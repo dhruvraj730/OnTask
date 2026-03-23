@@ -1,6 +1,23 @@
 const Job = require('../models/Job');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const { sendPushNotification } = require('../config/pushNotificationService');
+const { sendEmailNotification } = require('../config/emailNotificationService');
+
+const notifyUser = async (recipientId, title, content, link, sendEmail = false, emailSubject = '', emailBody = '') => {
+    try {
+        const user = await User.findById(recipientId).select('email fcmToken name');
+        if (!user) return;
+        if (user.fcmToken) {
+            sendPushNotification(user.fcmToken, title, content, link).catch(console.error);
+        }
+        if (sendEmail && user.email) {
+            sendEmailNotification(user.email, emailSubject || title, emailBody || content).catch(console.error);
+        }
+    } catch (err) {
+        console.error('Error in external notifications:', err);
+    }
+};
 
 // @desc    Get all jobs
 // @route   GET /api/jobs
@@ -60,7 +77,7 @@ const createJob = async (req, res) => {
 
         // Create notification for all job seekers
         try {
-            const jobSeekers = await User.find({ role: 'job_seeker' }, '_id');
+            const jobSeekers = await User.find({ role: 'job_seeker' }, '_id fcmToken');
             const notifications = jobSeekers.map(js => ({
                 recipient: js._id,
                 sender: req.user._id,
@@ -69,6 +86,13 @@ const createJob = async (req, res) => {
                 link: `/project/${job._id}`
             }));
             await Notification.insertMany(notifications);
+
+            // Push notification to all
+            jobSeekers.forEach(js => {
+                if (js.fcmToken) {
+                    sendPushNotification(js.fcmToken, 'New Job Alert', `New job posted: ${title}`, `/project/${job._id}`).catch(() => {});
+                }
+            });
         } catch (notifErr) {
             console.error("Failed to send job alerts:", notifErr);
         }
@@ -215,6 +239,7 @@ const releasePayment = async (req, res) => {
             content: `Payment of ₹${amountToPay} has been released for ${job.title} (${type} payment).`,
             link: `/project/${job._id}`
         });
+        await notifyUser(freelancerId, 'Payment Released', `Payment of ₹${amountToPay} has been released for ${job.title}.`, `/project/${job._id}`, true, 'Payment Released', `<p>Payment of <strong>₹${amountToPay}</strong> has been released for ${job.title} (${type} payment).</p>`);
 
         res.status(200).json({
             message: `Payment of ₹${amountToPay} released successfully to ${freelancer?.name}`,
@@ -370,6 +395,7 @@ const scheduleInterview = async (req, res) => {
             content: `You have been invited to an interview for the job: ${job.title}.`,
             link: interviewLink
         });
+        await notifyUser((application.applicant._id || application.applicant), 'Interview Scheduled', `You have been invited to an interview for: ${job.title}`, interviewLink, true, 'Interview Invitation', `<p>You have been invited to an interview for the job: <strong>${job.title}</strong>.</p><p>Please join via this link: <a href="${interviewLink}">${interviewLink}</a></p>`);
 
         res.status(200).json(job);
     } catch (error) {
@@ -465,6 +491,7 @@ const hireApplicant = async (req, res) => {
             content: `Congratulations! You have been hired for the job: ${job.title}.`,
             link: `/project/${job._id}`
         });
+        await notifyUser((application.applicant._id || application.applicant), 'You got the job!', `Congratulations! You have been hired for: ${job.title}`, `/project/${job._id}`, true, 'Job Offer: Hired!', `<p>Congratulations! You have been hired for the job: <strong>${job.title}</strong>.</p>`);
 
         res.status(200).json(job);
     } catch (error) {
@@ -512,6 +539,7 @@ const rejectApplicant = async (req, res) => {
             content: `Your application for the job ${job.title} has been rejected.`,
             link: `/applications`
         });
+        await notifyUser((application.applicant._id || application.applicant), 'Application Update', `Your application for ${job.title} was rejected.`, `/applications`, true, 'Application Status Update', `<p>We regret to inform you that your application for the job <strong>${job.title}</strong> has been rejected.</p>`);
 
         console.log("[Reject] Application rejected successfully");
         res.status(200).json(job);
@@ -565,6 +593,7 @@ const addJobUpdate = async (req, res) => {
             content: `New progress update from ${req.user.name} for "${job.title}"`,
             link: `/project/${job._id}`
         });
+        await notifyUser((job.employer._id || job.employer), 'Progress Update', `New progress update from ${req.user.name} for "${job.title}"`, `/project/${job._id}`, true, 'New Progress Update', `<p>${req.user.name} has submitted a new progress update for <strong>${job.title}</strong>.</p>`);
 
         res.status(200).json(job);
     } catch (error) {
@@ -672,6 +701,7 @@ const verifyJobUpdate = async (req, res) => {
             content: customContent,
             link: `/project/${job._id}`
         });
+        await notifyUser((targetHire.freelancer._id || targetHire.freelancer), 'Progress Update Verified', customContent, `/project/${job._id}`, true, 'Progress Verified', `<p>${customContent}</p>`);
 
         res.status(200).json(populatedJob);
     } catch (error) {
@@ -739,6 +769,7 @@ const applyForJob = async (req, res) => {
             content: `${req.user.name} has applied for your job: ${job.title}`,
             link: `/pro/job/${job._id}/applications`
         });
+        await notifyUser((job.employer._id || job.employer), 'New Application', `${req.user.name} applied for your job: ${job.title}`, `/pro/job/${job._id}/applications`, true, 'New Job Application', `<p><strong>${req.user.name}</strong> has applied for your job: <strong>${job.title}</strong>.</p>`);
 
         res.status(200).json(job);
     } catch (error) {

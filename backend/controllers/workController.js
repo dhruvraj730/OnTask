@@ -1,6 +1,23 @@
 const Job = require('../models/Job');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const { sendPushNotification } = require('../config/pushNotificationService');
+const { sendEmailNotification } = require('../config/emailNotificationService');
+
+const notifyUser = async (recipientId, title, content, link, sendEmail = false, emailSubject = '', emailBody = '') => {
+    try {
+        const user = await User.findById(recipientId).select('email fcmToken name');
+        if (!user) return;
+        if (user.fcmToken) {
+            sendPushNotification(user.fcmToken, title, content, link).catch(console.error);
+        }
+        if (sendEmail && user.email) {
+            sendEmailNotification(user.email, emailSubject || title, emailBody || content).catch(console.error);
+        }
+    } catch (err) {
+        console.error('Error in external notifications:', err);
+    }
+};
 
 // @desc    Hire a tasker
 // @route   POST /api/work/:jobId/hire/:userId
@@ -41,6 +58,7 @@ const hireTasker = async (req, res) => {
             content: `Congratulations! You have been hired for the job: ${job.title}.`,
             link: `/project/${job._id}`
         });
+        await notifyUser(req.params.userId, 'You got the job!', `Congratulations! You have been hired for: ${job.title}`, `/project/${job._id}`, true, 'Job Offer: Hired!', `<p>Congratulations! You have been hired for the job: <strong>${job.title}</strong>.</p>`);
 
         res.json(job);
     } catch (error) {
@@ -79,6 +97,7 @@ const addProgress = async (req, res) => {
             content: `New progress update from ${req.user.name} for "${job.title}"`,
             link: `/project/${job._id}`
         });
+        await notifyUser((job.employer._id || job.employer), 'Progress Update', `New progress update from ${req.user.name} for "${job.title}"`, `/project/${job._id}`, true, 'New Progress Update', `<p>${req.user.name} has submitted a new progress update for <strong>${job.title}</strong>.</p>`);
 
         res.json(job);
     } catch (error) {
@@ -131,6 +150,7 @@ const approveProgress = async (req, res) => {
             content: `Your progress update for ${job.title} has been approved${update.verifiedProgress !== update.proposedProgress ? ' (revised to ' + update.verifiedProgress + '%)' : ''}.`,
             link: `/project/${job._id}`
         });
+        await notifyUser((targetHire.freelancer._id || targetHire.freelancer), 'Progress Update Approved', `Your progress update for ${job.title} has been approved.`, `/project/${job._id}`, true, 'Progress Approved', `<p>Your progress update for <strong>${job.title}</strong> has been approved.</p>`);
 
         res.json(job);
     } catch (error) {
@@ -171,6 +191,7 @@ const rejectProgress = async (req, res) => {
             content: `Your progress update for ${job.title} has been rejected: ${rejectionReason || 'No reason provided'}`,
             link: `/project/${job._id}`
         });
+        await notifyUser((update.freelancer?._id || update.freelancer || (job.hires.find(h => h.progressUpdates.id(req.params.updateId))?.freelancer)), 'Progress Update Rejected', `Your progress update for ${job.title} was rejected.`, `/project/${job._id}`, true, 'Progress Rejected', `<p>Your progress update for <strong>${job.title}</strong> has been rejected: ${rejectionReason || 'No reason provided'}</p>`);
 
         res.json(job);
     } catch (error) {
@@ -203,6 +224,7 @@ const completeJob = async (req, res) => {
             content: `${req.user.name} has marked the job "${job.title}" as completed. Please review and release payment.`,
             link: `/pro/job/${job._id}/applications`
         });
+        await notifyUser((job.employer._id || job.employer), 'Job Completed', `${req.user.name} marked "${job.title}" as completed.`, `/pro/job/${job._id}/applications`, true, 'Job Completed!', `<p><strong>${req.user.name}</strong> has marked the job <strong>${job.title}</strong> as completed. Please review and release payment.</p>`);
 
         res.json(job);
     } catch (error) {
@@ -259,6 +281,7 @@ const releasePayment = async (req, res) => {
             content: `Payment of ₹${hire.paidAmount} has been released for ${job.title}.`,
             link: `/project/${job._id}`
         });
+        await notifyUser((hire.freelancer._id || hire.freelancer || freelancerId), 'Payment Released', `Payment of ₹${hire.paidAmount} has been released for ${job.title}.`, `/project/${job._id}`, true, 'Payment Released', `<p>Payment of <strong>₹${hire.paidAmount}</strong> has been released for ${job.title}.</p>`);
 
         res.json(job);
     } catch (error) {

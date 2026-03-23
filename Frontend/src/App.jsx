@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { Toaster } from 'react-hot-toast';
 import { Header } from './components/Header';
+import { NotificationManager } from './components/NotificationManager';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
@@ -33,6 +34,7 @@ function App() {
   return (
     <Router>
       <AuthProvider>
+        <NotificationManager />
         <Toaster position="top-center" reverseOrder={false} />
         <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
           <Header />
