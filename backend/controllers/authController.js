@@ -119,7 +119,8 @@ const updateUserProfile = async (req, res) => {
                 website: updatedUser.website,
                 hiringNeeds: updatedUser.hiringNeeds,
                 businessAddress: updatedUser.businessAddress,
-                token: generateToken(updatedUser._id) // Optional: refresh token
+                bankDetails: updatedUser.bankDetails,
+                token: generateToken(updatedUser._id)
             });
         } else {
             res.status(404).json({ message: 'User not found' });
@@ -150,6 +151,7 @@ const loginUser = async (req, res) => {
                 hourlyRate: user.hourlyRate,
                 experience: user.experience,
                 professionalTitle: user.professionalTitle,
+                bankDetails: user.bankDetails,
                 token: generateToken(user._id)
             });
         } else {
@@ -253,14 +255,73 @@ const getUserProfile = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+const updateSettings = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
 
+        if (req.body.notifications) {
+            user.settings.notifications = {
+                ...user.settings.notifications,
+                ...req.body.notifications
+            };
+        }
 
+        if (req.body.privacy) {
+            user.settings.privacy = {
+                ...user.settings.privacy,
+                ...req.body.privacy
+            };
+        }
+
+        await user.save();
+        res.json(user.settings);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+const changePasswordAuthenticated = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        console.log("Password change request for user:", req.user.id);
+        const user = await User.findById(req.user.id);
+
+        if (!user) {
+            console.log("User not found for ID:", req.user.id);
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        if (!user.password) {
+            console.log("User has no password (likely Google user)");
+            return res.status(400).json({ message: 'Account does not have a local password. Please use social login.' });
+        }
+
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+            console.log("Current password mismatch");
+            return res.status(400).json({ message: 'Invalid current password' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+        await user.save();
+
+        console.log("Password updated successfully for:", user.email);
+        res.json({ message: 'Password updated successfully' });
+    } catch (error) {
+        console.error("Change password error:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
 
 module.exports = {
     registerUser,
     loginUser,
     getUserProfile,
     updateUserProfile,
+    updateSettings,
+    changePasswordAuthenticated,
     forgotPassword,
     verifyOtp,
     changePassword

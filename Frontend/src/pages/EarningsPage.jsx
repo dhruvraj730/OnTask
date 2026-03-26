@@ -44,15 +44,45 @@ const EarningsPage = () => {
         }
     };
 
-    // Mock data for chart if not enough real data
-    const chartData = [
-        { name: 'Jan', amount: 1200 },
-        { name: 'Feb', amount: 1900 },
-        { name: 'Mar', amount: 1500 },
-        { name: 'Apr', amount: 2200 },
-        { name: 'May', amount: 2400 },
-        { name: 'Jun', amount: 2400 },
-    ];
+    // Calculate dynamic stats and chart data
+    const processChartData = () => {
+        const last6Months = [];
+        const now = new Date();
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            last6Months.push({
+                name: d.toLocaleString('default', { month: 'short' }),
+                month: d.getMonth(),
+                year: d.getFullYear(),
+                amount: 0
+            });
+        }
+
+        if (walletData?.transactions) {
+            walletData.transactions.forEach(tx => {
+                if (tx.type === 'payment' && tx.status === 'completed') {
+                    const txDate = new Date(tx.date);
+                    const mIdx = last6Months.findIndex(m => m.month === txDate.getMonth() && m.year === txDate.getFullYear());
+                    if (mIdx !== -1) {
+                        last6Months[mIdx].amount += tx.amount;
+                    }
+                }
+            });
+        }
+        return last6Months;
+    };
+
+    const chartData = processChartData();
+
+    const thisMonthEarnings = walletData?.transactions
+        ? walletData.transactions
+            .filter(tx => {
+                const d = new Date(tx.date);
+                const now = new Date();
+                return tx.type === 'payment' && tx.status === 'completed' && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+            })
+            .reduce((sum, tx) => sum + tx.amount, 0)
+        : 0;
 
     if (loading) return <div className="p-10 text-center">Loading wallet...</div>;
 
@@ -92,7 +122,7 @@ const EarningsPage = () => {
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center">
                     <p className="text-gray-500 text-sm font-medium mb-1">This Month</p>
-                    <h2 className="text-3xl font-bold text-blue-600">{formatINR(2300)}</h2>
+                    <h2 className="text-3xl font-bold text-blue-600">{formatINR(thisMonthEarnings)}</h2>
                 </div>
             </div>
 

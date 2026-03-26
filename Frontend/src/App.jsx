@@ -29,6 +29,7 @@ import AuthSuccess from './pages/AuthSuccess';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import VerifyOtpPage from './pages/VerifyOtpPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import SettingsPage from './pages/SettingsPage';
 
 function App() {
   return (
@@ -63,6 +64,7 @@ function App() {
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/applications" element={<MyApplicationsPage />} />
             <Route path="/earnings" element={<EarningsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="/project/:id" element={<ProjectDetailPage />} />
           </Routes>
 

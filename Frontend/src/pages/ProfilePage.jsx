@@ -1,11 +1,10 @@
 import { useState, useContext, useEffect } from 'react';
 import AuthContext from '../context/AuthContext';
 import GlassContainer from '../components/premium/GlassContainer';
-import GradientButton from '../components/premium/GradientButton';
 import axios from 'axios';
 
 const ProfilePage = () => {
-    const { user, updateProfile } = useContext(AuthContext);
+    const { user, updateProfile, token } = useContext(AuthContext);
     const [isEditing, setIsEditing] = useState(false);
     const [profileData, setProfileData] = useState({
         name: '',
@@ -14,13 +13,18 @@ const ProfilePage = () => {
         skills: '',
         hourlyRate: '',
         experience: '',
+        bankDetails: {
+            accountHolderName: '',
+            bankName: '',
+            accountNumber: '',
+            routingNumber: ''
+        },
         reviews: []
     });
     const [loading, setLoading] = useState(true);
 
     const fetchUserData = async () => {
         try {
-            const token = localStorage.getItem('token');
             if (!token) return;
             const res = await axios.get('/api/auth/profile', {
                 headers: { Authorization: `Bearer ${token}` }
@@ -37,10 +41,15 @@ const ProfilePage = () => {
                 industry: userData.industry || '',
                 website: userData.website || '',
                 hiringNeeds: userData.hiringNeeds ? (Array.isArray(userData.hiringNeeds) ? userData.hiringNeeds.join(', ') : userData.hiringNeeds) : '',
+                bankDetails: userData.bankDetails || {
+                    accountHolderName: '',
+                    bankName: '',
+                    accountNumber: '',
+                    routingNumber: ''
+                },
                 reviews: userData.reviews || [],
                 rating: userData.rating || 0
             });
-            // Update the local user object if possible (though AuthContext might need a refresh function)
         } catch (error) {
             console.error("Error fetching user data:", error);
         } finally {
@@ -70,6 +79,7 @@ const ProfilePage = () => {
     };
 
     if (!user) return <div className="p-10 text-center">Please log in to view profile.</div>;
+    if (loading) return <div className="p-10 text-center">Loading profile...</div>;
 
     return (
         <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -172,6 +182,73 @@ const ProfilePage = () => {
                                             />
                                         </div>
                                     </div>
+
+                                    {/* Bank Details Section */}
+                                    <div className="pt-4 border-t border-gray-100">
+                                        <h4 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                            🏦 Bank Details (For Withdrawals)
+                                        </h4>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-500 uppercase">Account Holder Name</label>
+                                                <input
+                                                    type="text"
+                                                    disabled={!isEditing}
+                                                    value={profileData.bankDetails?.accountHolderName || ''}
+                                                    onChange={(e) => setProfileData({
+                                                        ...profileData,
+                                                        bankDetails: { ...profileData.bankDetails, accountHolderName: e.target.value }
+                                                    })}
+                                                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                                    placeholder="As per bank records"
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-500 uppercase">Bank Name</label>
+                                                    <input
+                                                        type="text"
+                                                        disabled={!isEditing}
+                                                        value={profileData.bankDetails?.bankName || ''}
+                                                        onChange={(e) => setProfileData({
+                                                            ...profileData,
+                                                            bankDetails: { ...profileData.bankDetails, bankName: e.target.value }
+                                                        })}
+                                                        className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                                        placeholder="e.g. HDFC, SBI"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-500 uppercase">Account Number</label>
+                                                    <input
+                                                        type="text"
+                                                        disabled={!isEditing}
+                                                        value={profileData.bankDetails?.accountNumber || ''}
+                                                        onChange={(e) => setProfileData({
+                                                            ...profileData,
+                                                            bankDetails: { ...profileData.bankDetails, accountNumber: e.target.value }
+                                                        })}
+                                                        className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                                        placeholder="0000000000"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-500 uppercase">IFSC / Routing Number</label>
+                                                <input
+                                                    type="text"
+                                                    disabled={!isEditing}
+                                                    value={profileData.bankDetails?.routingNumber || ''}
+                                                    onChange={(e) => setProfileData({
+                                                        ...profileData,
+                                                        bankDetails: { ...profileData.bankDetails, routingNumber: e.target.value }
+                                                    })}
+                                                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                                    placeholder="e.g. HDFC0001234"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
                                 </>
                             ) : (
                                 <>
@@ -264,3 +341,4 @@ const ProfilePage = () => {
 };
 
 export default ProfilePage;
+

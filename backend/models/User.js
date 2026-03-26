@@ -146,6 +146,16 @@ const userSchema = mongoose.Schema({
         bankName: { type: String, default: '' },
         accountNumber: { type: String, default: '' },
         routingNumber: { type: String, default: '' }
+    },
+    settings: {
+        notifications: {
+            email: { type: Boolean, default: true },
+            push: { type: Boolean, default: true }
+        },
+        privacy: {
+            profileVisible: { type: Boolean, default: true },
+            showOnlineStatus: { type: Boolean, default: true }
+        }
     }
 }, {
     timestamps: true

@@ -137,23 +137,13 @@ const releasePayment = async (req, res) => {
 
         let budget = hire.agreedBudget || 0;
         
-        // Refined fallback logic
-        const positionsRequired = Number(job.positionsRequired) || 1;
-        const totalJobBudget = job.budget || 0;
-        const totalSalaryBudget = (job.salary && job.salary.toLowerCase() !== 'negotiable') ? (Number(job.salary.match(/\d+/)?.[0]) || 0) : 0;
-        const effectiveTotalBudget = totalJobBudget > 0 ? totalJobBudget : totalSalaryBudget;
-
-        // If budget is missing OR it was incorrectly set to the TOTAL budget when it should have been divided
-        // and no payments have been made yet, we fix it.
-        if (budget <= 0 || (positionsRequired > 1 && budget === effectiveTotalBudget && hire.paidAmount === 0)) {
-            budget = effectiveTotalBudget / positionsRequired;
-            
-            if (budget > 0) {
-                hire.agreedBudget = budget;
-                // If no escrow yet or it's matching the old total budget, fix it
-                if (!hire.escrowAmount || hire.escrowAmount <= 0 || (positionsRequired > 1 && hire.escrowAmount === effectiveTotalBudget)) {
-                    hire.escrowAmount = budget;
-                }
+        // Ensure budget is set if 0 (can happen for early test data)
+        if (budget <= 0) {
+            const positionsRequired = Number(job.positionsRequired) || 1;
+            const perWorkerBudget = (job.budget || 0) / positionsRequired;
+            if (perWorkerBudget > 0) {
+                hire.agreedBudget = perWorkerBudget;
+                budget = perWorkerBudget;
             }
         }
 
@@ -270,38 +260,6 @@ const getMyJobs = async (req, res) => {
             .populate('hires.freelancer', 'name email skills hourlyRate avatar')
             .populate('applications.applicant', 'name email skills hourlyRate');
 
-        // Apply fallback for 0 budgets in existing hires
-        let overallNeedsSave = false;
-        for (const job of jobs) {
-            let jobNeedsSave = false;
-            if (job.hires && job.hires.length > 0) {
-                let defaultBudget = job.budget || 0;
-                if (defaultBudget <= 0 && job.salary && job.salary.toLowerCase() !== 'negotiable') {
-                    const salaryMatch = job.salary.match(/\d+/);
-                    defaultBudget = salaryMatch ? Number(salaryMatch[0]) : 0;
-                }
-                
-                job.hires.forEach(hire => {
-                    const positionsRequired = Number(job.positionsRequired) || 1;
-                    const perWorkerBudget = defaultBudget / positionsRequired;
-
-                    // Fallback for missing budget OR legacy data where total budget was assigned instead of divided version
-                    if (defaultBudget > 0 && ((!hire.agreedBudget || hire.agreedBudget <= 0) || (positionsRequired > 1 && hire.agreedBudget === defaultBudget && (hire.paidAmount || 0) === 0))) {
-                        hire.agreedBudget = perWorkerBudget;
-                        if (!hire.escrowAmount || hire.escrowAmount <= 0 || (positionsRequired > 1 && hire.escrowAmount === defaultBudget)) {
-                            hire.escrowAmount = perWorkerBudget;
-                        }
-                        jobNeedsSave = true;
-                    }
-                });
-            }
-            if (jobNeedsSave) {
-                job.markModified('hires');
-                await job.save();
-                overallNeedsSave = true;
-            }
-        }
-
         res.status(200).json(jobs);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -320,36 +278,6 @@ const getJobById = async (req, res) => {
 
         if (!job) {
             return res.status(404).json({ message: 'Job not found' });
-        }
-
-        // Apply fallback for 0 budgets in existing hires
-        let needsSave = false;
-        if (job.hires && job.hires.length > 0) {
-            // Determine default budget from job.budget or job.salary
-            let defaultBudget = job.budget || 0;
-            if (defaultBudget <= 0 && job.salary && job.salary.toLowerCase() !== 'negotiable') {
-                const salaryMatch = job.salary.match(/\d+/);
-                defaultBudget = salaryMatch ? Number(salaryMatch[0]) : 0;
-            }
-            
-            job.hires.forEach(hire => {
-                const positionsRequired = Number(job.positionsRequired) || 1;
-                const perWorkerBudget = defaultBudget / positionsRequired;
-
-                // Fallback for missing budget OR legacy data where total budget was assigned instead of divided version
-                if (defaultBudget > 0 && ((!hire.agreedBudget || hire.agreedBudget <= 0) || (positionsRequired > 1 && hire.agreedBudget === defaultBudget && (hire.paidAmount || 0) === 0))) {
-                    hire.agreedBudget = perWorkerBudget;
-                    if (!hire.escrowAmount || hire.escrowAmount <= 0 || (positionsRequired > 1 && hire.escrowAmount === defaultBudget)) {
-                        hire.escrowAmount = perWorkerBudget;
-                    }
-                    needsSave = true;
-                }
-            });
-        }
-
-        if (needsSave) {
-            job.markModified('hires');
-            await job.save();
         }
 
         res.status(200).json(job);
@@ -463,7 +391,7 @@ const hireApplicant = async (req, res) => {
             status: 'in_progress',
             agreedBudget: finalBudget,
             paidAmount: 0,
-            escrowAmount: finalBudget > 0 ? finalBudget : 0,
+            escrowAmount: 0,
         });
 
         // Automatically set status to in_progress if fully staffed

@@ -5,7 +5,7 @@ import GlassContainer from '../components/premium/GlassContainer';
 import { useLocation } from 'react-router-dom';
 
 const MessagesPage = () => {
-    const { user } = useContext(AuthContext);
+    const { user, socket } = useContext(AuthContext);
     const [conversations, setConversations] = useState([]);
     const [currentChat, setCurrentChat] = useState(null);
     const [messages, setMessages] = useState([]);
@@ -17,8 +17,10 @@ const MessagesPage = () => {
     const initialChatUserId = location.state?.recipientId || location.state?.userId;
 
     useEffect(() => {
-        fetchConversations();
-    }, []);
+        if (user) {
+            fetchConversations();
+        }
+    }, [user]);
 
     useEffect(() => {
         if (initialChatUserId && conversations.length > 0) {
@@ -36,10 +38,24 @@ const MessagesPage = () => {
     useEffect(() => {
         if (currentChat) {
             fetchMessages(currentChat._id);
-            const interval = setInterval(() => fetchMessages(currentChat._id), 3000); // Polling for sync
-            return () => clearInterval(interval);
         }
     }, [currentChat]);
+
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleNewMessage = (newMsg) => {
+            if (currentChat && (newMsg.sender._id === currentChat._id || newMsg.sender === currentChat._id)) {
+                setMessages(prev => [...prev, newMsg]);
+                markAsRead(currentChat._id);
+            }
+            fetchConversations();
+        };
+
+        socket.on('newMessage', handleNewMessage);
+
+        return () => socket.off('newMessage', handleNewMessage);
+    }, [socket, currentChat]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -54,6 +70,7 @@ const MessagesPage = () => {
             if (!user) return;
             const myId = user._id || user.id;
             const filteredConversations = res.data.filter(c => c._id.toString() !== myId.toString());
+            console.log("Conversations with unread counts:", filteredConversations);
             setConversations(filteredConversations);
 
             // If checking for initial chat user who is NOT in list yet
@@ -92,6 +109,7 @@ const MessagesPage = () => {
             const hasUnread = res.data.some(m => !m.read && (m.recipient === (user?._id || user?.id) || m.recipient?._id === (user?._id || user?.id)));
             if (hasUnread) {
                 await markAsRead(userId);
+                fetchConversations();
             }
         } catch (error) {
             console.error(error);
@@ -139,12 +157,33 @@ const MessagesPage = () => {
                                 onClick={() => setCurrentChat(c)}
                                 className={`p-4 flex items-center cursor-pointer hover:bg-blue-50 transition-colors ${currentChat?._id === c._id ? 'bg-blue-100' : ''}`}
                             >
-                                <div className="h-10 w-10 bg-gradient-to-br from-purple-400 to-blue-500 rounded-full flex items-center justify-center text-white font-bold mr-3">
-                                    {c.name.charAt(0)}
+                                <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold mr-4 shrink-0 shadow-sm relative">
+                                    {c.name.charAt(0).toUpperCase()}
+                                    {c.unreadCount > 0 && (
+                                        <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white"></div>
+                                    )}
                                 </div>
-                                <div>
-                                    <h3 className="font-bold text-gray-900">{c.name}</h3>
-                                    <p className="text-xs text-gray-500 capitalize">{c.role === 'employer' ? 'Provider' : c.role?.replace('_', ' ')}</p>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <h3 className={`font-bold truncate ${c.unreadCount > 0 ? 'text-gray-900' : 'text-gray-700'}`}>
+                                            {c.name}
+                                        </h3>
+                                        {c.unreadCount > 0 && (
+                                            <div className="w-5 h-5 bg-blue-600 text-white text-[10px] flex items-center justify-center rounded-full font-bold shadow-sm">
+                                                {c.unreadCount}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex justify-between items-center mt-0.5">
+                                        <p className="text-xs text-gray-500 capitalize truncate">
+                                            {c.role === 'employer' ? 'Provider' : c.role?.replace('_', ' ')}
+                                        </p>
+                                        {c.lastMessageAt && (
+                                            <p className="text-[10px] text-gray-400">
+                                                {new Date(c.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         ))}

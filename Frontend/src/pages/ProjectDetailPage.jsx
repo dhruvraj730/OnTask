@@ -78,6 +78,73 @@ const ProjectDetailPage = () => {
         });
     };
 
+    const handleRazorpayDeposit = async (hire) => {
+        try {
+            const amountToFund = hire.agreedBudget - (hire.escrowAmount + (hire.paidAmount || 0));
+            if (amountToFund <= 0) {
+                alert("This hire is already fully funded!");
+                return;
+            }
+
+            // 1. Create Order on Backend
+            const orderRes = await axios.post('/api/payment/order', {
+                jobId: id,
+                hireId: hire._id,
+                amount: amountToFund
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            const order = orderRes.data;
+
+            // 2. Open Razorpay Checkout
+            const options = {
+                key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_SVrt70P33NYYWU', // Fallback or use env
+                amount: order.amount,
+                currency: order.currency,
+                name: "OnTask Escrow",
+                description: `Funding escrow for ${project.title}`,
+                order_id: order.id,
+                handler: async function (response) {
+                    // 3. Verify Payment on Backend
+                    try {
+                        const verifyRes = await axios.post('/api/payment/verify', {
+                            ...response,
+                            jobId: id,
+                            hireId: hire._id,
+                            amount: amountToFund
+                        }, {
+                            headers: { Authorization: `Bearer ${token}` }
+                        });
+
+                        if (verifyRes.data.success) {
+                            alert("Payment successful! Funds added to escrow.");
+                            fetchProject();
+                        }
+                    } catch (err) {
+                        alert("Payment verification failed");
+                        console.error(err);
+                    }
+                },
+                prefill: {
+                    name: user.name,
+                    email: user.email,
+                },
+                theme: {
+                    color: "#2563eb",
+                },
+            };
+
+            const rzp = new window.Razorpay(options);
+            rzp.open();
+
+        } catch (err) {
+            console.error("Razorpay initialization error details:", err);
+            const errorMessage = err.response?.data?.message || err.message || "Unknown error";
+            alert(`Failed to initialize payment: ${errorMessage}`);
+        }
+    };
+
     const handleConfirmReview = async () => {
         try {
             const { updateId, action, reason, overriddenProgress } = reviewModal;
@@ -345,15 +412,26 @@ const ProjectDetailPage = () => {
                                                 </div>
                                                 <div>
                                                     <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Paid</p>
-                                                    <p className="font-bold text-blue-600 text-lg flex justify-between items-center">
-                                                        ₹{hire.paidAmount}
-                                                        <button
-                                                            onClick={() => setPayModalHire(hire)}
-                                                            className="px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-lg hover:bg-emerald-200 transition-all flex items-center gap-1 shadow-sm uppercase tracking-wider"
-                                                        >
-                                                            <Send className="w-3 h-3" /> Pay
-                                                        </button>
-                                                    </p>
+                                                    <div className="flex flex-col gap-2">
+                                                        <p className="font-bold text-blue-600 text-lg flex justify-between items-center">
+                                                            ₹{hire.paidAmount}
+                                                            <button
+                                                                onClick={() => setPayModalHire(hire)}
+                                                                disabled={hire.escrowAmount <= 0}
+                                                                className="px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-lg hover:bg-emerald-200 transition-all flex items-center gap-1 shadow-sm uppercase tracking-wider disabled:opacity-50"
+                                                            >
+                                                                <Send className="w-3 h-3" /> Release
+                                                            </button>
+                                                        </p>
+                                                        {hire.escrowAmount < hire.agreedBudget && (
+                                                            <button
+                                                                onClick={() => handleRazorpayDeposit(hire)}
+                                                                className="w-full py-1 bg-blue-600 text-white text-[10px] font-bold rounded-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-1 shadow-sm uppercase tracking-wider"
+                                                            >
+                                                                Deposit ₹{hire.agreedBudget - hire.escrowAmount}
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
 

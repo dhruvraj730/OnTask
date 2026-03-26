@@ -5,8 +5,45 @@ const cors = require('cors');
 const passport = require('passport');
 require('./config/passport.js');  
 
+const http = require('http');
+const { Server } = require('socket.io');
+
 const app = express();
 const port = process.env.PORT || 5000;
+
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: '*', // Allow all origins for demo
+        methods: ['GET', 'POST', 'PUT', 'DELETE'],
+        credentials: true
+    }
+});
+
+const userSockets = new Map();
+
+io.on('connection', (socket) => {
+    console.log(`Socket connected: ${socket.id}`);
+
+    socket.on('registerUser', (userId) => {
+        if (userId) {
+            userSockets.set(userId, socket.id);
+            console.log(`User ${userId} registered with socket ${socket.id}`);
+        }
+    });
+
+    socket.on('disconnect', () => {
+        for (const [userId, socketId] of userSockets.entries()) {
+            if (socketId === socket.id) {
+                userSockets.delete(userId);
+                break;
+            }
+        }
+    });
+});
+
+app.set('io', io);
+app.set('userSockets', userSockets);
 
 // Middleware
 app.use(express.json());
@@ -61,4 +98,4 @@ app.use('/api/app-feedback', require('./routes/appFeedbackRoutes.js'));
 
 app.get('/', (req, res) => res.send('OnTask Backend is running'));
 
-app.listen(port, () => console.log(`Server started on port ${port}`));
+server.listen(port, () => console.log(`Server started on port ${port}`));

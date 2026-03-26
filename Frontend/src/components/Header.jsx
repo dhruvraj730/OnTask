@@ -6,7 +6,7 @@ import { Search, Bell, MessageSquare, ChevronDown, User, CheckCircle } from 'luc
 import axios from 'axios';
 
 export function Header() {
-    const { user, logout } = useContext(AuthContext);
+    const { user, logout, socket } = useContext(AuthContext);
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -35,9 +35,22 @@ export function Header() {
 
     useEffect(() => {
         fetchNotifications();
-        const intervalId = setInterval(fetchNotifications, 10000); // Poll every 10s
-        return () => clearInterval(intervalId);
     }, [user]);
+
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleNewMessage = () => fetchNotifications();
+        const handleNewNotification = () => fetchNotifications();
+
+        socket.on('newMessage', handleNewMessage);
+        socket.on('newNotification', handleNewNotification);
+
+        return () => {
+            socket.off('newMessage', handleNewMessage);
+            socket.off('newNotification', handleNewNotification);
+        };
+    }, [socket]);
 
     useEffect(() => {
         const handleClickOutside = (event) => {

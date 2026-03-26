@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { registerUser, loginUser, getUserProfile, updateUserProfile, forgotPassword, verifyOtp, changePassword } = require('../controllers/authController.js');
+const { registerUser, loginUser, getUserProfile, updateUserProfile, updateSettings, changePasswordAuthenticated, forgotPassword, verifyOtp, changePassword } = require('../controllers/authController.js');
 const jwt = require('jsonwebtoken');
 const { protect } = require('../middleware/authMiddleware.js');
 const passport = require('passport');
@@ -14,6 +14,8 @@ router.post('/verify-otp/:email', verifyOtp);
 router.post('/change-password/:email', changePassword);
 router.get('/profile', protect, getUserProfile);
 router.put('/profile', protect, updateUserProfile);
+router.put('/settings', protect, updateSettings);
+router.put('/change-password-auth', protect, changePasswordAuthenticated);
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 router.get('/google/callback', passport.authenticate('google', { session: false }), (req, res) => {
     try{

@@ -37,6 +37,16 @@ const sendMessage = async (req, res) => {
             .populate('sender', 'name email')
             .populate('recipient', 'name email');
 
+        // Emit socket event to recipient if they are connected
+        const io = req.app.get('io');
+        const userSockets = req.app.get('userSockets');
+        if (io && userSockets) {
+            const recipientSocketId = userSockets.get(recipientId.toString());
+            if (recipientSocketId) {
+                io.to(recipientSocketId).emit('newMessage', fullMessage);
+            }
+        }
+
         res.status(201).json(fullMessage);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -50,33 +60,45 @@ const getConversations = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        // Find all messages where user is sender OR recipient
+        // Find all messages involving the user
         const messages = await Message.find({
             $or: [{ sender: userId }, { recipient: userId }]
         }).sort({ createdAt: -1 });
 
-        // Extract unique user IDs involved
-        const uniqueUserIds = new Set();
-        const currentUserId = req.user._id || req.user.id;
-        const currentUserIdStr = currentUserId.toString();
-        
+        // Map to store latest message and unread count per contact
+        const contactStats = new Map();
+        const currentUserIdStr = userId.toString();
+
         messages.forEach(msg => {
-            const senderId = msg.sender?._id || msg.sender;
-            const recipientId = msg.recipient?._id || msg.recipient;
-            
-            if (!senderId || !recipientId) return;
-            
-            const senderStr = senderId.toString();
-            const recipientStr = recipientId.toString();
-            
-            if (senderStr !== currentUserIdStr) uniqueUserIds.add(senderStr);
-            if (recipientStr !== currentUserIdStr) uniqueUserIds.add(recipientStr);
+            const senderId = msg.sender.toString();
+            const recipientId = msg.recipient.toString();
+            const otherUserId = senderId === currentUserIdStr ? recipientId : senderId;
+
+            if (!contactStats.has(otherUserId)) {
+                contactStats.set(otherUserId, {
+                    lastMessageAt: msg.createdAt,
+                    unreadCount: 0
+                });
+            }
+
+            // If I am the recipient and it is unread
+            if (recipientId === currentUserIdStr && !msg.read) {
+                contactStats.get(otherUserId).unreadCount += 1;
+            }
         });
 
+        const sortedUserIds = Array.from(contactStats.keys());
+
         // Get user details
-        const conversations = await User.find({
-            _id: { $in: Array.from(uniqueUserIds) }
-        }).select('name role bio profileImage'); // Add profileImage if available
+        const users = await User.find({
+            _id: { $in: sortedUserIds }
+        }).select('name role bio profileImage').lean();
+
+        // Merge stats and sort
+        const conversations = users.map(user => ({
+            ...user,
+            ...contactStats.get(user._id.toString())
+        })).sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt));
 
         res.json(conversations);
     } catch (error) {
