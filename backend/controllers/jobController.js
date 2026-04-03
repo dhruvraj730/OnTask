@@ -53,6 +53,20 @@ const createJob = async (req, res) => {
         if (!salary) return res.status(400).json({ message: 'Please add a salary/rate' });
         if (!startDate) return res.status(400).json({ message: 'Please add a starting date' });
         if (!duration || !duration.value || !duration.unit) return res.status(400).json({ message: 'Please add a work duration' });
+        
+        // Check for duplicate job
+        const existingJob = await Job.findOne({
+            employer: req.user.id,
+            title,
+            company,
+            description,
+            startDate,
+            jobStatus: { $in: ['open', 'in_progress'] }
+        });
+
+        if (existingJob) {
+            return res.status(400).json({ message: 'You have already posted this job. You cannot post the same job multiple times.' });
+        }
 
         const job = await Job.create({
             employer: req.user.id,

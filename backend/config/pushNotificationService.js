@@ -4,11 +4,9 @@ const path = require('path');
 let serviceAccount;
 
 try {
-  // First attempt: look for explicitly provided path
   if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
     serviceAccount = require(path.resolve(__dirname, '..', process.env.FIREBASE_SERVICE_ACCOUNT_PATH));
   } else {
-    // Second attempt: load the JSON file directly assuming it's in the root of backend
     serviceAccount = require('../firebase-service-account.json');
   }
 
