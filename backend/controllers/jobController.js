@@ -42,7 +42,9 @@ const createJob = async (req, res) => {
         }
 
         const {
-            title, company, location, description, salary, budget, startDate, duration,
+            title, company, location, description, salary, budget, 
+            minBudget, maxBudget, pricingType, specificRole,
+            startDate, duration,
             screeningQuestions, endDate, startTime, endTime, venue, uniformRequirements, positionsRequired
         } = req.body;
 
@@ -76,6 +78,10 @@ const createJob = async (req, res) => {
             description,
             salary,
             budget,
+            minBudget,
+            maxBudget,
+            pricingType: pricingType || 'fixed',
+            specificRole,
             startDate,
             duration,
             screeningQuestions: screeningQuestions || [],
@@ -350,7 +356,7 @@ const scheduleInterview = async (req, res) => {
 // @access  Private (Employer only)
 const hireApplicant = async (req, res) => {
     try {
-        const { applicantId } = req.body;
+        const { applicantId, finalBudget: overrideBudget } = req.body;
         const job = await Job.findById(req.params.id);
 
         if (!job) {
@@ -368,10 +374,14 @@ const hireApplicant = async (req, res) => {
         }
 
         const positionsRequired = Number(job.positionsRequired) || 1;
+        const currentHiresCount = job.hires?.length || 0;
+
+        console.log(`[DEBUG] Hiring for Job: ${job.title} (${job._id})`);
+        console.log(`[DEBUG] Positions Required: ${positionsRequired}, Current Hires: ${currentHiresCount}`);
 
         // Check if all positions have been filled already
-        if (job.hires.length >= positionsRequired) {
-            return res.status(400).json({ message: 'All available positions for this job have been filled' });
+        if (currentHiresCount >= positionsRequired) {
+            return res.status(400).json({ message: `All ${positionsRequired} positions for this job have already been filled.` });
         }
 
         // Check if the applicant is already hired to prevent duplicate hires
@@ -380,21 +390,28 @@ const hireApplicant = async (req, res) => {
             return res.status(400).json({ message: 'This freelancer has already been hired for this job' });
         }
 
-        let totalBudget = Number(job.budget) || 0;
-        
-        if (totalBudget <= 0 && job.salary && job.salary.toLowerCase() !== 'negotiable') {
-            const match = job.salary.match(/\d+/);
-            if (match) {
-                totalBudget = Number(match[0]);
-            }
-        }
+        // --- Calculate Contract Value ---
+        let finalBudget = 0;
 
-        let finalBudget = totalBudget / positionsRequired;
-
-        // Use negotiated budget if it was accepted
-        if (application.offeredBudgetStatus === 'accepted' && application.offeredBudget) {
+        if (overrideBudget && Number(overrideBudget) > 0) {
+            console.log(`[Hire] Using explicit finalBudget from provider: ₹${overrideBudget}`);
+            finalBudget = Number(overrideBudget);
+        } else if (application.offeredBudgetStatus === 'accepted' && application.offeredBudget) {
             console.log(`[Hire] Using negotiated budget: ₹${application.offeredBudget}`);
             finalBudget = application.offeredBudget;
+        } else if (job.pricingType === 'range' || (job.maxBudget > 0 && job.minBudget > 0)) {
+            // Default to maxBudget for range-based specialized jobs if no explicit override/negotiation
+            finalBudget = Number(job.maxBudget) || 0;
+        } else {
+            // Standard mass recruitment logic (fixed budget / roles)
+            let totalBudget = Number(job.budget) || 0;
+            if (totalBudget <= 0 && job.salary && job.salary.toLowerCase() !== 'negotiable') {
+                const match = job.salary.match(/\d+/);
+                if (match) {
+                    totalBudget = Number(match[0]);
+                }
+            }
+            finalBudget = totalBudget / positionsRequired;
         }
 
         application.status = 'hired';
@@ -409,7 +426,10 @@ const hireApplicant = async (req, res) => {
         });
 
         // Automatically set status to in_progress if fully staffed
-        if (job.hires.length >= positionsRequired) {
+        // Note: length was updated after the push above
+        const updatedHiresCount = job.hires.length;
+        if (updatedHiresCount >= positionsRequired) {
+            console.log(`[DEBUG] Job fully staffed (${updatedHiresCount}/${positionsRequired}). Closing to new applicants.`);
             if (job.jobStatus === 'open') {
                 job.jobStatus = 'in_progress';
             }
@@ -421,6 +441,8 @@ const hireApplicant = async (req, res) => {
                 }
             });
             job.markModified('applications');
+        } else {
+            console.log(`[DEBUG] Job partially staffed (${updatedHiresCount}/${positionsRequired}). Keeping status OPEN.`);
         }
 
         await job.save();
@@ -573,6 +595,12 @@ const verifyJobUpdate = async (req, res) => {
 
         if (!update || !targetHire) {
             return res.status(404).json({ message: 'Update not found' });
+        }
+
+        // Ensure sequential verification: Check if this is the oldest pending update for this hire
+        const pendingUpdates = targetHire.progressUpdates.filter(u => u.status === 'pending');
+        if (pendingUpdates.length > 0 && pendingUpdates[0]._id.toString() !== req.params.updateId) {
+            return res.status(400).json({ message: 'Please verify earlier updates first. You must verify updates in the order they were submitted.' });
         }
 
         if (action === 'approve') {

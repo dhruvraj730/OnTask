@@ -229,20 +229,32 @@ const ProjectDetailPage = () => {
                         <GlassContainer className="p-8 border border-gray-100 shadow-xl">
                             <div className="flex justify-between items-start mb-6">
                                 <div>
-                                    <h1 className="text-3xl font-bold text-gray-900 mb-2">{project.title}</h1>
-                                    <p className="text-blue-600 font-bold flex items-center gap-2 uppercase tracking-wide text-xs">
-                                        <Clock className="w-4 h-4" /> {project.jobStatus?.replace('_', ' ')}
+                                    <h1 className="text-3xl font-extrabold text-gray-900 mb-2 leading-tight">
+                                        {project.title}
+                                        {project.specificRole && (
+                                            <span className="block text-lg text-blue-600 font-black mt-1 uppercase tracking-tighter flex items-center gap-2">
+                                                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                                Role: {project.specificRole}
+                                            </span>
+                                        )}
+                                    </h1>
+                                    <p className="text-gray-400 font-bold flex items-center gap-2 uppercase tracking-widest text-[10px]">
+                                        <Clock className="w-3 h-3" /> {project.jobStatus?.replace('_', ' ')}
                                     </p>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-3xl font-bold text-gray-900">
-                                        {isHiredTasker && myContract ? `₹${myContract.agreedBudget}` :
-                                            (project.budget ? `₹${isEmployer ? project.budget : Math.round(project.budget / (project.positionsRequired || 1))}` : formatSalary(project.salary))}
+                                        {isHiredTasker && myContract ? `₹${myContract.agreedBudget || (project.pricingType === 'range' ? project.maxBudget : project.budget)}` :
+                                            (project.pricingType === 'range' || (project.minBudget > 0 && project.maxBudget > 0)) ? 
+                                                `₹${project.minBudget} - ₹${project.maxBudget}` :
+                                                (project.budget ? `₹${isEmployer ? project.budget : Math.round(project.budget / (project.positionsRequired || 1))}` : formatSalary(project.salary))
+                                        }
                                     </p>
                                     <p className="text-xs font-bold text-gray-400 uppercase">
-                                        {isEmployer ? 'Total Job Budget' :
-                                            isHiredTasker ? 'Your Contract Value' :
-                                                (project.budget ? 'Budget per Worker' : 'Estimated Budget')}
+                                        {isHiredTasker ? 'Your Contract Value' :
+                                            (project.pricingType === 'range' || (project.minBudget > 0 && project.maxBudget > 0)) ? 'Negotiable Range' :
+                                                isEmployer ? 'Total Job Budget' :
+                                                    (project.budget ? 'Budget per Worker' : 'Estimated Budget')}
                                     </p>
                                 </div>
                             </div>
@@ -284,11 +296,11 @@ const ProjectDetailPage = () => {
                                 </div>
 
                                 {/* Apply / Message Buttons for Job Seeker */}
-                                {user && user.role === 'job_seeker' && project.jobStatus === 'open' && (
+                                {user && user.role === 'job_seeker' && (project.jobStatus === 'open' || (project.hires?.length || 0) < (project.positionsRequired || 1)) && project.jobStatus !== 'completed' && project.jobStatus !== 'closed' && (
                                     <div className="flex gap-4 pt-6 mt-4 border-t border-gray-50">
                                         {hasApplied ? (
                                             <button disabled className="flex-1 py-3 bg-gray-100 text-gray-500 font-bold rounded-xl cursor-not-allowed">
-                                                Applied
+                                                Already Applied
                                             </button>
                                         ) : (
                                             <button
@@ -535,17 +547,29 @@ const ProjectDetailPage = () => {
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-2 font-sans">Progress ({newUpdate.progress}%)</label>
-                                <input
-                                    type="range"
-                                    min={myContract?.progress || 0}
-                                    max="100"
-                                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                                    value={newUpdate.progress}
-                                    onChange={(e) => setNewUpdate({ ...newUpdate, progress: Math.max(myContract?.progress || 0, Number(e.target.value)) })}
-                                />
-                                <div className="flex justify-between text-xs text-gray-400 mt-1 uppercase font-bold">
-                                    <span>{myContract?.progress || 0}% Current</span>
-                                    <span>100% Finished</span>
+                                <div className="relative pt-2">
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="100"
+                                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600 relative z-10"
+                                        value={newUpdate.progress}
+                                        onChange={(e) => {
+                                            const val = Number(e.target.value);
+                                            const minVal = myContract?.progress || 0;
+                                            setNewUpdate({ ...newUpdate, progress: Math.max(minVal, val) });
+                                        }}
+                                    />
+                                    {/* Visual Track for Verified Progress */}
+                                    <div 
+                                        className="absolute top-[18px] left-0 h-2 bg-blue-200 rounded-l-lg z-0" 
+                                        style={{ width: `${myContract?.progress || 0}%` }}
+                                    ></div>
+                                </div>
+                                <div className="flex justify-between text-[10px] text-gray-400 mt-2 uppercase font-bold">
+                                    <span>0% Start</span>
+                                    <span className="text-blue-600">Verified: {myContract?.progress || 0}%</span>
+                                    <span>100% End</span>
                                 </div>
                             </div>
                         </div>
@@ -644,16 +668,27 @@ const ProjectDetailPage = () => {
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-2 font-sans">Verified Progress ({reviewModal.overriddenProgress}%)</label>
                                     <p className="text-xs text-gray-500 mb-4 font-sans">You can adjust the progress percentage if you feel it differs from the submitted work, but it cannot be lower than the current {reviewModal.currentProgressMax}%.</p>
-                                    <input
-                                        type="range"
-                                        min={reviewModal.currentProgressMax}
-                                        max="100"
-                                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                                        value={reviewModal.overriddenProgress}
-                                        onChange={(e) => setReviewModal({ ...reviewModal, overriddenProgress: Math.max(reviewModal.currentProgressMax, Number(e.target.value)) })}
-                                    />
-                                    <div className="flex justify-between text-xs text-gray-400 mt-2 uppercase font-bold font-mono">
-                                        <span>{reviewModal.currentProgressMax}%</span>
+                                    <div className="relative pt-2">
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-500 relative z-10"
+                                            value={reviewModal.overriddenProgress}
+                                            onChange={(e) => {
+                                                const val = Number(e.target.value);
+                                                setReviewModal({ ...reviewModal, overriddenProgress: Math.max(reviewModal.currentProgressMax, val) });
+                                            }}
+                                        />
+                                        {/* Visual Track for Minimum Verified Progress */}
+                                        <div 
+                                            className="absolute top-[18px] left-0 h-2 bg-emerald-100 rounded-l-lg z-0" 
+                                            style={{ width: `${reviewModal.currentProgressMax}%` }}
+                                        ></div>
+                                    </div>
+                                    <div className="flex justify-between text-[10px] text-gray-400 mt-2 uppercase font-bold font-mono">
+                                        <span>0%</span>
+                                        <span className="text-emerald-600">Min: {reviewModal.currentProgressMax}%</span>
                                         <span>100%</span>
                                     </div>
                                 </div>
@@ -727,6 +762,9 @@ const ProjectDetailPage = () => {
 
 // Sub-component for rendering timeline updates cleanly
 const TimelineUpdates = ({ updates, hiredAt, isEmployer, handleOpenReview }) => {
+    // Find the oldest pending update to ensure sequential verification
+    const oldestPendingId = updates?.find(u => u.status === 'pending')?._id;
+
     return (
         <div className="space-y-6 relative before:absolute before:left-8 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200">
             {updates && updates.length > 0 ? (
@@ -766,19 +804,30 @@ const TimelineUpdates = ({ updates, hiredAt, isEmployer, handleOpenReview }) => 
                             )}
 
                             {isEmployer && update.status === 'pending' && (
-                                <div className="mt-4 pt-4 border-t border-gray-100 flex gap-3">
-                                    <button
-                                        onClick={() => handleOpenReview(update._id, 'approve', update.proposedProgress)}
-                                        className="flex items-center gap-1 px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-green-600"
-                                    >
-                                        <CheckCircle className="w-4 h-4" /> Approve
-                                    </button>
-                                    <button
-                                        onClick={() => handleOpenReview(update._id, 'reject')}
-                                        className="px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-bold hover:bg-red-100"
-                                    >
-                                        Reject
-                                    </button>
+                                <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-3">
+                                    {update._id === oldestPendingId ? (
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={() => handleOpenReview(update._id, 'approve', update.proposedProgress)}
+                                                className="flex-1 flex items-center justify-center gap-1 px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-green-600 transition-all"
+                                            >
+                                                <CheckCircle className="w-4 h-4" /> Approve
+                                            </button>
+                                            <button
+                                                onClick={() => handleOpenReview(update._id, 'reject')}
+                                                className="flex-1 px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-bold hover:bg-red-100 transition-all"
+                                            >
+                                                Reject
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-amber-50 border border-amber-100 p-3 rounded-lg">
+                                            <p className="text-[10px] font-bold text-amber-600 uppercase flex items-center gap-2">
+                                                <Clock className="w-3 h-3" /> Waiting for Earlier Updates
+                                            </p>
+                                            <p className="text-[10px] text-amber-500 mt-0.5">Please verify the oldest update first to maintain project sequence.</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

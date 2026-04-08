@@ -69,11 +69,13 @@ const getActiveContracts = async (req, res) => {
             // Fallback for budget
             let budget = hire ? hire.agreedBudget : 0;
             if (budget <= 0) {
-                if (job.budget && job.budget > 0) {
+                if (job.maxBudget > 0) {
+                    budget = job.maxBudget;
+                } else if (job.budget && job.budget > 0) {
                     budget = job.budget;
                 } else if (job.salary) {
-                    const match = job.salary.match(/\d+/);
-                    if (match) budget = Number(match[0]);
+                    const matches = job.salary.match(/\d+/g);
+                    if (matches) budget = Number(matches[matches.length - 1]);
                 }
             }
 
@@ -113,11 +115,13 @@ const getCompletedJobs = async (req, res) => {
             // Fallback for budget
             let budget = hire ? hire.agreedBudget : 0;
             if (budget <= 0) {
-                if (job.budget && job.budget > 0) {
+                if (job.maxBudget > 0) {
+                    budget = job.maxBudget;
+                } else if (job.budget && job.budget > 0) {
                     budget = job.budget;
                 } else if (job.salary) {
-                    const match = job.salary.match(/\d+/);
-                    if (match) budget = Number(match[0]);
+                    const matches = job.salary.match(/\d+/g);
+                    if (matches) budget = Number(matches[matches.length - 1]);
                 }
             }
 

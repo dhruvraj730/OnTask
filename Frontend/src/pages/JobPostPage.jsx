@@ -27,6 +27,10 @@ const JobPostPage = () => {
         durationUnit: 'days',
         positionsRequired: 1,
         budget: 0,
+        minBudget: 0,
+        maxBudget: 0,
+        pricingType: 'range', // Default for 1 position
+        specificRole: '',
         screeningQuestions: ['']
     });
 
@@ -86,6 +90,7 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
             setFormData({
                 ...formData,
                 title: `${aiPrompt.role}`,
+                specificRole: aiPrompt.role, // Suggesting the role as the specific role
                 location: extractedLocation,
                 salary: extractedSalary,
                 budget: numericBudget,
@@ -94,6 +99,7 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
                 durationValue: '1',
                 durationUnit: 'days',
                 positionsRequired: extractedPositions,
+                pricingType: extractedPositions < 7 ? 'range' : 'fixed',
                 screeningQuestions: [
                     `Do you have experience as a ${aiPrompt.role}?`,
                     `Are you comfortable working for ${extractedSalary}?`,
@@ -108,7 +114,24 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
     };
 
     const onChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        let newFormData = { ...formData, [name]: value };
+
+        // Hybrid Budgeting Logic: Auto-switch pricing type based on positions
+        if (name === 'positionsRequired') {
+            const count = Math.max(1, Number(value) || 1);
+            newFormData.positionsRequired = count; // Ensure it's a number in state too
+            newFormData.pricingType = count < 7 ? 'range' : 'fixed';
+            
+            // Helpful UX: Update default salary text hints
+            if (count < 7 && !newFormData.salary) {
+                newFormData.salary = 'Negotiable Range';
+            } else if (count >= 7 && !newFormData.salary) {
+                newFormData.salary = 'Fixed Rate';
+            }
+        }
+
+        setFormData(newFormData);
     };
 
     const handleQuestionChange = (index, value) => {
@@ -122,9 +145,12 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
     };
 
     const nextStep = () => {
-        if (step === 1 && (!title || !company || !location)) return toast.error("Please fill all required fields");
+        if (step === 1) {
+            if (!title || !company || !location) return toast.error("Please fill all required fields");
+            if (positionsRequired < 7 && !formData.specificRole) return toast.error("Please specified the specific role for this specialized team.");
+        }
         if (step === 2 && (!startDate || !durationValue)) return toast.error("Please set the timeline");
-        if (step === 3 && !salary) return toast.error("Please specified the compensation");
+        if (step === 3 && (formData.pricingType === 'range' ? (!formData.minBudget || !formData.maxBudget) : !salary)) return toast.error("Please specified the compensation");
         setStep(prev => Math.min(prev + 1, 4));
     };
 
@@ -135,11 +161,20 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
         setLoading(true);
         try {
             const validQuestions = screeningQuestions.filter(q => q.trim() !== '');
+            // Automatically format salary display text if the user hasn't customized it much
+            let finalSalary = formData.salary;
+            if (formData.pricingType === 'range' && (finalSalary === 'Negotiable Range' || !finalSalary)) {
+                finalSalary = `₹${formData.minBudget} - ₹${formData.maxBudget} (Negotiable)`;
+            }
+
             const payload = {
                 ...formData,
+                salary: finalSalary,
                 screeningQuestions: validQuestions,
                 positionsRequired: Number(positionsRequired),
                 budget: Number(formData.budget) || 0,
+                minBudget: Number(formData.minBudget) || 0,
+                maxBudget: Number(formData.maxBudget) || 0,
                 duration: {
                     value: Number(durationValue),
                     unit: durationUnit
@@ -176,11 +211,15 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
             <div className="grid grid-cols-2 gap-3 mb-6">
                 <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
                     <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">Compensation</p>
-                    <p className="text-sm font-bold text-gray-700">{salary || '₹ —'}</p>
+                    <p className="text-sm font-black text-blue-700">
+                        {formData.pricingType === 'range' 
+                            ? (formData.minBudget && formData.maxBudget ? `₹${formData.minBudget}-${formData.maxBudget}` : (salary || 'Negotiable'))
+                            : (salary || '₹ —')}
+                    </p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
                     <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">Positions</p>
-                    <p className="text-sm font-bold text-gray-700">{positionsRequired} Open</p>
+                    <p className="text-sm font-bold text-gray-700">{positionsRequired} {positionsRequired < 7 ? 'Specialists' : 'Openings'}</p>
                 </div>
             </div>
 
@@ -347,20 +386,68 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
                                                         <h3 className="text-2xl font-bold text-slate-900 border-l-4 border-blue-600 pl-4">Basic Information</h3>
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                                             <div className="space-y-2">
-                                                                <label className="text-xs font-black text-slate-700 uppercase pl-1">Job Title</label>
-                                                                <input type="text" name="title" required value={title} onChange={onChange} className="block w-full px-5 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-blue-50/50 focus:border-blue-500 bg-slate-50 transition-all font-medium" placeholder="Senior Event Planner" />
-                                                            </div>
-                                                            <div className="space-y-2">
                                                                 <label className="text-xs font-black text-slate-700 uppercase pl-1">Company Name</label>
                                                                 <input type="text" name="company" required value={company} onChange={onChange} className="block w-full px-5 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-blue-50/50 focus:border-blue-500 bg-slate-50 transition-all font-medium" placeholder="Global Events Corp" />
                                                             </div>
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            <label className="text-xs font-black text-slate-700 uppercase pl-1">Work Location</label>
-                                                            <div className="relative">
-                                                                <MapPin className="absolute left-5 top-5 text-slate-400 w-5 h-5" />
-                                                                <input type="text" name="location" required value={location} onChange={onChange} className="block w-full pl-14 pr-5 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-blue-50/50 focus:border-blue-500 bg-slate-50 transition-all font-medium" placeholder="Mumbai, Remote, or Event Venue" />
+                                                            <div className="space-y-2">
+                                                                <label className="text-xs font-black text-slate-700 uppercase pl-1">Work Location</label>
+                                                                <div className="relative">
+                                                                    <MapPin className="absolute left-5 top-5 text-slate-400 w-5 h-5" />
+                                                                    <input type="text" name="location" required value={location} onChange={onChange} className="block w-full pl-14 pr-5 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-blue-50/50 focus:border-blue-500 bg-slate-50 transition-all font-medium" placeholder="Mumbai, Remote, or Event Venue" />
+                                                                </div>
                                                             </div>
+                                                        </div>
+
+                                                        <div className="bg-blue-50/30 p-6 rounded-3xl border border-blue-100/50 shadow-inner space-y-4">
+                                                            <div className="space-y-2">
+                                                                <label className="text-xs font-black text-blue-700 uppercase pl-1 flex items-center gap-2">
+                                                                    Recruitment Volume <Users className="w-3 h-3" />
+                                                                </label>
+                                                                <div className="relative">
+                                                                    <Users className="absolute left-5 top-5 text-blue-400 w-5 h-5" />
+                                                                    <input 
+                                                                        type="number" 
+                                                                        name="positionsRequired" 
+                                                                        required 
+                                                                        min="1" 
+                                                                        value={positionsRequired} 
+                                                                        onChange={onChange} 
+                                                                        className="block w-full pl-14 pr-5 py-4 rounded-2xl border-sky-200 focus:ring-4 focus:ring-sky-100 focus:border-sky-500 bg-white transition-all font-bold text-lg" 
+                                                                        placeholder="How many people?" 
+                                                                    />
+                                                                </div>
+                                                                <p className="text-[10px] text-blue-400 font-bold px-1 uppercase tracking-tighter">
+                                                                    {positionsRequired < 7 ? 'Specialized Mode: Quality over Quantity' : 'Bulk Mode: High Volume Efficiency'}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="space-y-6">
+                                                            <div className="space-y-2">
+                                                                <label className="text-xs font-black text-slate-700 uppercase pl-1">
+                                                                    {positionsRequired < 7 ? 'Project Category (Job Title)' : 'Job Title'}
+                                                                </label>
+                                                                <input type="text" name="title" required value={title} onChange={onChange} className="block w-full px-5 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-blue-50/50 focus:border-blue-500 bg-slate-50 transition-all font-medium" placeholder={positionsRequired < 7 ? "e.g. Wedding Services" : "e.g. Event Staff"} />
+                                                            </div>
+
+                                                            {/* Specific Role Field for Small Teams - Dynamic based on Volume above */}
+                                                            {positionsRequired < 7 && (
+                                                                <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                                                                    <label className="text-xs font-black text-indigo-600 uppercase pl-1 flex items-center gap-2">
+                                                                        Specific Individual Role <Sparkles className="w-3 h-3" />
+                                                                    </label>
+                                                                    <input 
+                                                                        type="text" 
+                                                                        name="specificRole" 
+                                                                        required 
+                                                                        value={formData.specificRole} 
+                                                                        onChange={onChange} 
+                                                                        className="block w-full px-5 py-4 rounded-2xl border-indigo-200 focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 bg-white transition-all font-bold placeholder:font-normal" 
+                                                                        placeholder="e.g. Lead Cinematographer, Senior Architect, etc." 
+                                                                    />
+                                                                    <p className="text-[10px] text-indigo-400 font-bold px-1 uppercase tracking-tight">Specialized hiring requires a dedicated role definition.</p>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </motion.div>
                                                 )}
@@ -392,13 +479,6 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <div className="space-y-2">
-                                                            <label className="text-xs font-black text-slate-700 uppercase pl-1">Positions Available</label>
-                                                            <div className="relative">
-                                                                <Users className="absolute left-5 top-5 text-slate-400 w-5 h-5" />
-                                                                <input type="number" name="positionsRequired" required min="1" value={positionsRequired} onChange={onChange} className="block w-full pl-14 pr-5 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-blue-50/50 focus:border-blue-500 bg-slate-50 transition-all font-medium" placeholder="Number of people needed" />
-                                                            </div>
-                                                        </div>
                                                     </motion.div>
                                                 )}
 
@@ -410,27 +490,61 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
                                                         exit={{ x: -20, opacity: 0 }}
                                                         className="space-y-8"
                                                     >
-                                                        <h3 className="text-2xl font-bold text-slate-900 border-l-4 border-blue-600 pl-4">Budget & Compensation</h3>
+                                                        <h3 className="text-2xl font-bold text-slate-900 border-l-4 border-blue-600 pl-4">
+                                                            {formData.pricingType === 'range' ? 'Compensation Range' : 'Budget & Compensation'}
+                                                        </h3>
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                                            <div className="space-y-2 text-left">
-                                                                <label className="text-xs font-black text-slate-700 uppercase pl-1">Salary / Rate Text</label>
-                                                                <input type="text" name="salary" required value={salary} onChange={onChange} className="block w-full px-5 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-blue-50/50 focus:border-blue-500 bg-slate-50 transition-all font-medium" placeholder="e.g. ₹500/hr or Negotiable" />
-                                                            </div>
-                                                            <div className="space-y-2 text-left">
-                                                                <label className="text-xs font-black text-slate-700 uppercase pl-1">Total Budget (Numeric ₹)</label>
-                                                                <div className="relative">
-                                                                    <DollarSign className="absolute left-5 top-5 text-slate-400 w-5 h-5" />
-                                                                    <input type="number" name="budget" value={formData.budget || ''} onChange={onChange} className="block w-full pl-14 pr-5 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-blue-50/50 focus:border-blue-500 bg-slate-50 transition-all font-medium" placeholder="e.g. 10000" />
+                                                            {formData.pricingType === 'range' ? (
+                                                                <>
+                                                                    <div className="space-y-2 text-left">
+                                                                        <label className="text-xs font-black text-slate-700 uppercase pl-1 text-emerald-600">Minimum Budget (₹)</label>
+                                                                        <div className="relative">
+                                                                            <DollarSign className="absolute left-5 top-5 text-emerald-400 w-5 h-5" />
+                                                                            <input type="number" name="minBudget" value={formData.minBudget || ''} onChange={onChange} className="block w-full pl-14 pr-5 py-4 rounded-2xl border-emerald-100 focus:ring-4 focus:ring-emerald-50/50 focus:border-emerald-500 bg-emerald-50/30 transition-all font-bold text-emerald-700" placeholder="Min" />
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="space-y-2 text-left">
+                                                                        <label className="text-xs font-black text-slate-700 uppercase pl-1 text-emerald-600">Maximum Budget (₹)</label>
+                                                                        <div className="relative">
+                                                                            <DollarSign className="absolute left-5 top-5 text-emerald-400 w-5 h-5" />
+                                                                            <input type="number" name="maxBudget" value={formData.maxBudget || ''} onChange={onChange} className="block w-full pl-14 pr-5 py-4 rounded-2xl border-emerald-100 focus:ring-4 focus:ring-emerald-50/50 focus:border-emerald-500 bg-emerald-50/30 transition-all font-bold text-emerald-700" placeholder="Max" />
+                                                                        </div>
+                                                                    </div>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <div className="space-y-2 text-left">
+                                                                        <label className="text-xs font-black text-slate-700 uppercase pl-1">Salary / Rate Text</label>
+                                                                        <input type="text" name="salary" required value={salary} onChange={onChange} className="block w-full px-5 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-blue-50/50 focus:border-blue-500 bg-slate-50 transition-all font-medium" placeholder="e.g. ₹500/hr or Fixed" />
+                                                                    </div>
+                                                                    <div className="space-y-2 text-left">
+                                                                        <label className="text-xs font-black text-slate-700 uppercase pl-1">Total Budget (Numeric ₹)</label>
+                                                                        <div className="relative">
+                                                                            <DollarSign className="absolute left-5 top-5 text-slate-400 w-5 h-5" />
+                                                                            <input type="number" name="budget" value={formData.budget || ''} onChange={onChange} className="block w-full pl-14 pr-5 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-blue-50/50 focus:border-blue-500 bg-slate-50 transition-all font-medium" placeholder="e.g. 10000" />
+                                                                        </div>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
+
+                                                        {formData.pricingType === 'range' ? (
+                                                            <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100 flex gap-4">
+                                                                <div className="bg-emerald-100 text-emerald-600 p-2 rounded-xl self-start"><Sparkles className="w-5 h-5" /></div>
+                                                                <div>
+                                                                    <p className="text-sm font-extrabold text-emerald-900 mb-1">Talent Quality Mode</p>
+                                                                    <p className="text-xs text-emerald-800 leading-relaxed font-medium">For small teams (&lt; 7), we recommend a budget range. This attracts skilled specialists who can negotiate based on their portfolio.</p>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                        <div className="bg-amber-50 rounded-2xl p-5 border border-amber-100 flex gap-4">
-                                                            <div className="bg-amber-100 text-amber-600 p-2 rounded-xl self-start"><Info className="w-5 h-5" /></div>
-                                                            <div>
-                                                                <p className="text-sm font-bold text-amber-900 mb-1">Budget Allocation</p>
-                                                                <p className="text-xs text-amber-800 leading-relaxed font-medium">The Numeric Budget is the total amount you are willing to pay for this project. This help taskers understand the project's scale.</p>
+                                                        ) : (
+                                                            <div className="bg-amber-50 rounded-2xl p-5 border border-amber-100 flex gap-4">
+                                                                <div className="bg-amber-100 text-amber-600 p-2 rounded-xl self-start"><Users className="w-5 h-5" /></div>
+                                                                <div>
+                                                                    <p className="text-sm font-bold text-amber-900 mb-1">Bulk Hiring Mode</p>
+                                                                    <p className="text-xs text-amber-800 leading-relaxed font-medium">For mass recruitment (7+), a fixed rate is best for efficiency. The total budget will be divided across all openings.</p>
+                                                                </div>
                                                             </div>
-                                                        </div>
+                                                        )}
                                                     </motion.div>
                                                 )}
 

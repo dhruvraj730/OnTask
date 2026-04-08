@@ -287,11 +287,12 @@ const MyApplicationsPage = () => {
                                                 <p className="text-gray-600">{job.company}</p>
                                             </div>
                                             <div className="text-right">
-                                                <span className="block text-green-600 font-bold">
-                                                    {job.budget ? `₹${Math.round(job.budget / (job.positionsRequired || 1))}` : (job.salary && String(job.salary).includes('₹')
-                                                        ? String(job.salary)
-                                                        : (String(job.salary).includes('$') ? String(job.salary).replaceAll('$', '₹') : job.salary || 'N/A'))}
-                                                </span>
+                                                <div className="flex flex-col items-end">
+                                                    <span className="block text-2xl font-black text-green-600 leading-none">
+                                                        ₹{job.agreedBudget || 0}
+                                                    </span>
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Contract Value</span>
+                                                </div>
                                                 {job.endDate && (
                                                     <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
                                                         Due {new Date(job.endDate).toLocaleDateString()}
@@ -510,87 +511,106 @@ const MyApplicationsPage = () => {
             {/* Update Modal */}
             {
                 showUpdateModal && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
-                            <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-                                <h3 className="text-lg font-bold text-gray-800">Submit Work Update</h3>
-                                <button onClick={handleCloseUpdateModal} className="text-gray-400 hover:text-gray-600">
+                    <div className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+                        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-white/20 transform animate-in zoom-in-95 duration-300">
+                            {/* Header */}
+                            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-5 flex justify-between items-center">
+                                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
+                                    Post Progress Update
+                                </h3>
+                                <button onClick={handleCloseUpdateModal} className="text-blue-100 hover:text-white transition-colors">
                                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                 </button>
                             </div>
 
-                            <form onSubmit={handleSubmitUpdate} className="p-6">
-                                <div className="mb-4">
-                                    <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="description">
-                                        Description of Work
+                            <form onSubmit={handleSubmitUpdate} className="p-8">
+                                <div className="mb-6">
+                                    <label className="block text-sm font-bold text-gray-700 mb-2 font-sans" htmlFor="description">
+                                        What have you accomplished?
                                     </label>
                                     <textarea
                                         id="description"
                                         rows="4"
-                                        className="shadow-sm border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        placeholder="Describe what you've accomplished..."
+                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all resize-none text-sm leading-relaxed"
+                                        placeholder="Briefly describe the tasks completed in this update..."
                                         value={updateDescription}
                                         onChange={(e) => setUpdateDescription(e.target.value)}
                                         required
                                     ></textarea>
                                 </div>
 
-                                <div className="mb-6">
-                                    <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="progress">
-                                        Update Progress ({proposedProgress}%)
+                                <div className="mb-8">
+                                    <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center justify-between" htmlFor="progress">
+                                        <span>Work Progress</span>
+                                        <span className="text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg text-xs font-black">{proposedProgress}% Complete</span>
                                     </label>
-                                    <input
-                                        id="progress"
-                                        type="range"
-                                        min="0"
-                                        max="100"
-                                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                                        value={proposedProgress}
-                                        onChange={(e) => setProposedProgress(e.target.value)}
-                                    />
-                                    <div className="flex justify-between text-[10px] text-gray-400 mt-1 uppercase font-bold">
-                                        <span>Current: {selectedJobForUpdate?.progress || 0}%</span>
-                                        <span>Target: 100%</span>
+                                    <div className="relative pt-2">
+                                        <input
+                                            id="progress"
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            className="w-full h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-blue-600 relative z-10"
+                                            value={proposedProgress}
+                                            onChange={(e) => {
+                                                const val = Number(e.target.value);
+                                                const minVal = selectedJobForUpdate?.progress || 0;
+                                                setProposedProgress(Math.max(minVal, val));
+                                            }}
+                                        />
+                                        {/* Visual Track for Verified Progress */}
+                                        <div 
+                                            className="absolute top-[18px] left-0 h-2 bg-blue-200 rounded-l-lg z-0 transition-all duration-300" 
+                                            style={{ width: `${selectedJobForUpdate?.progress || 0}%` }}
+                                        ></div>
+                                    </div>
+                                    <div className="flex justify-between text-[10px] text-gray-400 mt-3 uppercase font-black tracking-widest">
+                                        <span>Start (0%)</span>
+                                        <span className="text-blue-500 px-2 py-0.5 bg-blue-50 rounded">Verified: {selectedJobForUpdate?.progress || 0}%</span>
+                                        <span>Finish (100%)</span>
                                     </div>
                                 </div>
 
-                                <div className="mb-6">
-                                    <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="imageUrl">
-                                        Image URL (Optional)
+                                <div className="mb-8">
+                                    <label className="block text-sm font-bold text-gray-700 mb-2" htmlFor="imageUrl">
+                                        Attachment URL (Optional)
                                     </label>
-                                    <input
-                                        id="imageUrl"
-                                        type="text"
-                                        className="shadow-sm border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        placeholder="https://example.com/image.png"
-                                        value={updateImageUrl}
-                                        onChange={(e) => setUpdateImageUrl(e.target.value)}
-                                    />
-                                    <p className="text-xs text-gray-500 mt-1">Provide a direct link to a screenshot or file.</p>
+                                    <div className="relative">
+                                        <input
+                                            id="imageUrl"
+                                            type="text"
+                                            className="w-full pl-4 pr-10 py-3 rounded-xl border border-gray-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm"
+                                            placeholder="https://example.com/screenshot.png"
+                                            value={updateImageUrl}
+                                            onChange={(e) => setUpdateImageUrl(e.target.value)}
+                                        />
+                                        <div className="absolute right-3 top-3 text-gray-400">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.827a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-2 font-medium">Link a screenshot or external file as proof of work.</p>
                                 </div>
 
-                                <div className="flex justify-end gap-3">
+                                <div className="flex gap-4">
                                     <button
                                         type="button"
                                         onClick={handleCloseUpdateModal}
-                                        className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md font-medium hover:bg-gray-300 transition-colors"
+                                        className="flex-1 px-6 py-3.5 bg-gray-50 text-gray-500 rounded-2xl font-bold text-sm hover:bg-gray-100 hover:text-gray-700 transition-all border border-gray-100"
                                     >
-                                        Cancel
+                                        Discard
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={submittingUpdate}
-                                        className={`px-4 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors flex items-center ${submittingUpdate ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                        className={`flex-[2] px-6 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl font-bold text-sm shadow-xl shadow-blue-500/20 hover:shadow-blue-500/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center ${submittingUpdate ? 'opacity-70 cursor-not-allowed' : ''}`}
                                     >
                                         {submittingUpdate ? (
-                                            <>
-                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                </svg>
-                                                Submitting...
-                                            </>
-                                        ) : 'Submit Update'}
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                <span>Submitting...</span>
+                                            </div>
+                                        ) : 'Send Update'}
                                     </button>
                                 </div>
                             </form>

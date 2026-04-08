@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, User, Calendar, Link as LinkIcon, CheckCircle, Clock, Filter, Sparkles, MessageSquare } from 'lucide-react';
+import { ArrowLeft, User, Users, Calendar, Link as LinkIcon, CheckCircle, Clock, Filter, Sparkles, MessageSquare } from 'lucide-react';
 import GlassContainer from '../components/premium/GlassContainer';
 
 const JobApplicationsPage = () => {
@@ -12,6 +12,7 @@ const JobApplicationsPage = () => {
     const [interviewModal, setInterviewModal] = useState({ open: false, applicantId: null });
     const [interviewData, setInterviewData] = useState({ link: '', date: '' });
     const [negotiateModal, setNegotiateModal] = useState({ open: false, applicantId: null, applicantName: '', amount: '' });
+    const [hireModal, setHireModal] = useState({ open: false, applicant: null, amount: '' });
 
     useEffect(() => {
         const fetchJob = async () => {
@@ -44,12 +45,15 @@ const JobApplicationsPage = () => {
         }
     };
 
-    const handleHire = async (applicantId) => {
-        if (!window.confirm("Are you sure you want to hire this freelancer?")) return;
+    const handleHire = async (applicantId, confirmedBudget) => {
         try {
-            await axios.put(`/api/jobs/${id}/hire`, { applicantId });
+            await axios.put(`/api/jobs/${id}/hire`, { 
+                applicantId, 
+                finalBudget: confirmedBudget 
+            });
             const res = await axios.get(`/api/jobs/${id}`);
             setJob(res.data);
+            setHireModal({ open: false, applicant: null, amount: '' });
             alert("Freelancer hired successfully!");
         } catch (error) {
             console.error("Error hiring freelancer:", error);
@@ -133,7 +137,19 @@ const JobApplicationsPage = () => {
                         </div>
                         <div>
                             <p className="text-xs font-bold text-gray-400 uppercase mb-1">Status</p>
-                            <p className="font-extrabold text-blue-600 text-lg capitalize">{job.jobStatus}</p>
+                            <p className="font-extrabold text-blue-600 text-lg capitalize">{job.jobStatus?.replace('_', ' ')}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold text-gray-400 uppercase mb-1">Hiring Progress</p>
+                            <div className="flex items-center gap-2">
+                                <p className="font-extrabold text-gray-900 text-lg">
+                                    {job.hires?.length || 0} / {job.positionsRequired || 1}
+                                </p>
+                                <Users className="w-4 h-4 text-blue-500" />
+                            </div>
+                            <p className="text-[10px] font-bold text-blue-400 uppercase tracking-tighter">
+                                {(job.positionsRequired || 1) - (job.hires?.length || 0)} spots remaining
+                            </p>
                         </div>
                         <div>
                             <p className="text-xs font-bold text-gray-400 uppercase mb-1">Applications</p>
@@ -283,12 +299,24 @@ const JobApplicationsPage = () => {
                                                         Reject Freelancer
                                                     </button>
                                                     <button
-                                                        onClick={() => handleHire(app.applicant._id)}
+                                                        onClick={() => {
+                                                            const isRangeJob = job.pricingType === 'range' || (job.minBudget > 0 && job.maxBudget > 0);
+                                                            if (isRangeJob) {
+                                                                // For range jobs, open the confirmation modal
+                                                                const initialAmount = app.offeredBudgetStatus === 'accepted' ? app.offeredBudget : job.maxBudget;
+                                                                setHireModal({ open: true, applicant: app.applicant, amount: initialAmount });
+                                                            } else {
+                                                                // For fixed jobs, simple confirm
+                                                                if (window.confirm(`Confirm hiring ${app.applicant.name}?`)) {
+                                                                    handleHire(app.applicant._id);
+                                                                }
+                                                            }
+                                                        }}
                                                         disabled={(job.hires?.length || 0) >= (job.positionsRequired || 1)}
-                                                        title={(job.hires?.length || 0) >= (job.positionsRequired || 1) ? 'All positions are filled' : ''}
-                                                        className={`flex-1 font-bold py-3 px-8 rounded-xl transition-all shadow-lg ${(job.hires?.length || 0) >= (job.positionsRequired || 1) ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none' : 'bg-green-600 text-white hover:bg-green-700 shadow-green-600/20'}`}
+                                                        title={(job.hires?.length || 0) >= (job.positionsRequired || 1) ? 'All positions are already filled for this project' : ''}
+                                                        className={`flex-1 font-bold py-3 px-8 rounded-xl transition-all shadow-lg ${(job.hires?.length || 0) >= (job.positionsRequired || 1) ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none' : 'bg-green-600 text-white hover:bg-green-700 shadow-green-600/20'}`}
                                                     >
-                                                        {(job.hires?.length || 0) >= (job.positionsRequired || 1) ? 'Positions Filled' : 'Hire This Freelancer'}
+                                                        {(job.hires?.length || 0) >= (job.positionsRequired || 1) ? 'All Positions Filled' : 'Hire This Freelancer'}
                                                     </button>
                                                 </>
                                             )}
@@ -416,6 +444,71 @@ const JobApplicationsPage = () => {
                                 className="flex-1 py-4 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 transition-all"
                             >
                                 Send Offer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Hire Confirmation Modal */}
+            {hireModal.open && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2.5rem] p-10 max-w-lg w-full shadow-2xl border border-slate-100 transform animate-in zoom-in-95 duration-300">
+                        <div className="flex items-center gap-4 mb-8">
+                            <div className="p-4 rounded-3xl bg-green-50 text-green-600 shadow-inner">
+                                <CheckCircle className="w-8 h-8" />
+                            </div>
+                            <div>
+                                <h3 className="text-3xl font-extrabold text-slate-900 tracking-tight">Confirm Hire</h3>
+                                <p className="text-slate-500 font-medium">Finalizing {hireModal.applicant?.name}</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-6 mb-10">
+                            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Project Pricing Guidance</p>
+                                <div className="flex justify-between items-end">
+                                    <div>
+                                        <p className="text-sm font-bold text-slate-600">Defined Range</p>
+                                        <p className="text-xl font-black text-slate-900">₹{job.minBudget} — ₹{job.maxBudget}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="bg-indigo-100 text-indigo-700 text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-tighter mb-1">Recommended</div>
+                                        <p className="text-sm text-slate-500">Secure the best talent</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="block text-sm font-black text-slate-700 uppercase tracking-wide pl-1">Final Agreed Budget (₹)</label>
+                                <div className="relative group">
+                                    <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 font-black text-xl group-focus-within:text-green-500 transition-colors">₹</div>
+                                    <input
+                                        type="number"
+                                        placeholder="Enter final amount"
+                                        className="w-full pl-14 pr-6 py-5 bg-white border-2 border-slate-100 rounded-[1.5rem] outline-none focus:border-green-500 focus:ring-4 focus:ring-green-50 transition-all font-black text-2xl text-slate-900 shadow-sm"
+                                        value={hireModal.amount}
+                                        onChange={(e) => setHireModal({ ...hireModal, amount: e.target.value })}
+                                    />
+                                </div>
+                                <p className="text-[11px] text-slate-400 font-bold italic pl-1 flex items-center gap-1.5">
+                                    <Sparkles className="w-3 h-3 text-amber-400" /> This amount will be locked in Escrow upon confirmation.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-4">
+                            <button
+                                onClick={() => setHireModal({ open: false, applicant: null, amount: '' })}
+                                className="flex-1 py-5 text-slate-500 font-black hover:bg-slate-50 rounded-2xl transition-all uppercase tracking-widest text-xs"
+                            >
+                                Not yet
+                            </button>
+                            <button
+                                onClick={() => handleHire(hireModal.applicant?._id, hireModal.amount)}
+                                disabled={!hireModal.amount || Number(hireModal.amount) <= 0}
+                                className="flex-[1.5] py-5 bg-slate-900 text-white font-black rounded-2xl hover:bg-black shadow-xl shadow-slate-200 transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2"
+                            >
+                                Confirm & Hire <ArrowLeft className="w-4 h-4 rotate-180" />
                             </button>
                         </div>
                     </div>

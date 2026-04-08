@@ -129,6 +129,12 @@ const approveProgress = async (req, res) => {
 
         if (!update) return res.status(404).json({ message: 'Progress update not found' });
 
+        // Ensure sequential verification: Check if this is the oldest pending update for this hire
+        const pendingUpdates = targetHire.progressUpdates.filter(u => u.status === 'pending');
+        if (pendingUpdates.length > 0 && pendingUpdates[0]._id.toString() !== req.params.updateId) {
+            return res.status(400).json({ message: 'Please verify earlier updates first. You must verify updates in the order they were submitted.' });
+        }
+
         update.status = 'approved';
         if (update.proposedProgress >= (targetHire.verifiedProgress || 0)) {
             targetHire.verifiedProgress = update.proposedProgress;
@@ -178,6 +184,13 @@ const rejectProgress = async (req, res) => {
         }
 
         if (!update) return res.status(404).json({ message: 'Progress update not found' });
+
+        // Ensure sequential verification: Check if this is the oldest pending update for this hire
+        const targetHire = job.hires.find(h => h.progressUpdates.id(req.params.updateId));
+        const pendingUpdates = targetHire.progressUpdates.filter(u => u.status === 'pending');
+        if (pendingUpdates.length > 0 && pendingUpdates[0]._id.toString() !== req.params.updateId) {
+            return res.status(400).json({ message: 'Please verify earlier updates first. You must verify updates in the order they were submitted.' });
+        }
 
         update.status = 'rejected';
         update.rejectionReason = rejectionReason || 'No reason provided';
