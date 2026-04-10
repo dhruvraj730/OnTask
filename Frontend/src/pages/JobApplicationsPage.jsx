@@ -12,7 +12,7 @@ const JobApplicationsPage = () => {
     const [interviewModal, setInterviewModal] = useState({ open: false, applicantId: null });
     const [interviewData, setInterviewData] = useState({ link: '', date: '' });
     const [negotiateModal, setNegotiateModal] = useState({ open: false, applicantId: null, applicantName: '', amount: '' });
-    const [hireModal, setHireModal] = useState({ open: false, applicant: null, amount: '' });
+    const [hireModal, setHireModal] = useState({ open: false, applicant: null, amount: '', isReadOnlyBudget: false });
 
     useEffect(() => {
         const fetchJob = async () => {
@@ -53,7 +53,7 @@ const JobApplicationsPage = () => {
             });
             const res = await axios.get(`/api/jobs/${id}`);
             setJob(res.data);
-            setHireModal({ open: false, applicant: null, amount: '' });
+            setHireModal({ open: false, applicant: null, amount: '', isReadOnlyBudget: false });
             alert("Freelancer hired successfully!");
         } catch (error) {
             console.error("Error hiring freelancer:", error);
@@ -304,7 +304,8 @@ const JobApplicationsPage = () => {
                                                             if (isRangeJob) {
                                                                 // For range jobs, open the confirmation modal
                                                                 const initialAmount = app.offeredBudgetStatus === 'accepted' ? app.offeredBudget : job.maxBudget;
-                                                                setHireModal({ open: true, applicant: app.applicant, amount: initialAmount });
+                                                                const isReadOnly = app.offeredBudgetStatus === 'accepted' || app.offeredBudgetStatus === 'none' || !app.offeredBudgetStatus;
+                                                                setHireModal({ open: true, applicant: app.applicant, amount: initialAmount, isReadOnlyBudget: isReadOnly });
                                                             } else {
                                                                 // For fixed jobs, simple confirm
                                                                 if (window.confirm(`Confirm hiring ${app.applicant.name}?`)) {
@@ -485,9 +486,10 @@ const JobApplicationsPage = () => {
                                     <input
                                         type="number"
                                         placeholder="Enter final amount"
-                                        className="w-full pl-14 pr-6 py-5 bg-white border-2 border-slate-100 rounded-[1.5rem] outline-none focus:border-green-500 focus:ring-4 focus:ring-green-50 transition-all font-black text-2xl text-slate-900 shadow-sm"
+                                        className={`w-full pl-14 pr-6 py-5 bg-white border-2 border-slate-100 rounded-[1.5rem] outline-none ${hireModal.isReadOnlyBudget ? 'opacity-70 bg-slate-50 cursor-not-allowed' : 'focus:border-green-500 focus:ring-4 focus:ring-green-50'} transition-all font-black text-2xl text-slate-900 shadow-sm`}
                                         value={hireModal.amount}
-                                        onChange={(e) => setHireModal({ ...hireModal, amount: e.target.value })}
+                                        onChange={(e) => !hireModal.isReadOnlyBudget && setHireModal({ ...hireModal, amount: e.target.value })}
+                                        readOnly={hireModal.isReadOnlyBudget}
                                     />
                                 </div>
                                 <p className="text-[11px] text-slate-400 font-bold italic pl-1 flex items-center gap-1.5">
@@ -498,7 +500,7 @@ const JobApplicationsPage = () => {
 
                         <div className="flex gap-4">
                             <button
-                                onClick={() => setHireModal({ open: false, applicant: null, amount: '' })}
+                                onClick={() => setHireModal({ open: false, applicant: null, amount: '', isReadOnlyBudget: false })}
                                 className="flex-1 py-5 text-slate-500 font-black hover:bg-slate-50 rounded-2xl transition-all uppercase tracking-widest text-xs"
                             >
                                 Not yet
