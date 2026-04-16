@@ -421,11 +421,19 @@ const hireApplicant = async (req, res) => {
         if (overrideBudget && Number(overrideBudget) > 0) {
             console.log(`[Hire] Using explicit finalBudget from provider: ₹${overrideBudget}`);
             finalBudget = Number(overrideBudget);
-        } else if (application.offeredBudgetStatus === 'accepted' && application.offeredBudget) {
-            console.log(`[Hire] Using negotiated budget: ₹${application.offeredBudget}`);
+        } else if ((application.offeredBudgetStatus === 'accepted' || application.offeredBudgetStatus === 'pending') && application.offeredBudget) {
+            // Auto-accept a pending offer: hiring while an offer is out means the provider commits to that price.
+            // This prevents the seeker from ever seeing the higher max budget once hired.
+            if (application.offeredBudgetStatus === 'pending') {
+                console.log(`[Hire] Auto-accepting pending offer: ₹${application.offeredBudget}`);
+                application.offeredBudgetStatus = 'accepted';
+            } else {
+                console.log(`[Hire] Using negotiated (accepted) budget: ₹${application.offeredBudget}`);
+            }
             finalBudget = application.offeredBudget;
         } else if (job.pricingType === 'range' || (job.maxBudget > 0 && job.minBudget > 0)) {
-            // Default to maxBudget for range-based specialized jobs if no explicit override/negotiation
+            // Default to maxBudget for range-based specialized jobs if no offer or offer was rejected
+            console.log(`[Hire] No valid offer (status: ${application.offeredBudgetStatus}), defaulting to maxBudget: ₹${job.maxBudget}`);
             finalBudget = Number(job.maxBudget) || 0;
         } else {
             // Standard mass recruitment logic (fixed budget / roles)
@@ -794,6 +802,21 @@ const proposeNegotiation = async (req, res) => {
         const application = job.applications.find(app => app.applicant.toString() === applicantId);
         if (!application) return res.status(404).json({ message: 'Application not found' });
 
+        // ESCROW LOCK: Block negotiation if the provider has already deposited money
+        const existingHire = job.hires.find(h => h.freelancer.toString() === applicantId);
+        if (existingHire && existingHire.escrowAmount > 0) {
+            return res.status(400).json({
+                message: 'Cannot renegotiate — payment has already been deposited into escrow. The agreed budget is now locked.'
+            });
+        }
+
+        // SPAM GUARD: Block a new offer if one is already waiting for the seeker's response
+        if (application.offeredBudgetStatus === 'pending') {
+            return res.status(400).json({
+                message: 'A budget offer is already pending. Please wait for the seeker to accept or reject before sending a new offer.'
+            });
+        }
+
         application.offeredBudget = Number(amount);
         application.offeredBudgetStatus = 'pending';
 
@@ -807,6 +830,7 @@ const proposeNegotiation = async (req, res) => {
             content: `The organizer has proposed a revised budget of ₹${amount} for ${job.title}.`,
             link: `/applications`
         });
+        await notifyUser((application.applicant._id || application.applicant), 'Budget Offer', `The organizer has proposed a revised budget of ₹${amount} for ${job.title}.`, `/applications`, true, 'New Budget Offer', `<p>The organizer has proposed a revised budget of <strong>₹${amount}</strong> for <strong>${job.title}</strong>. Please log in to accept or reject this offer.</p>`, 'applicationUpdates');
 
         res.status(200).json(job);
     } catch (error) {
@@ -835,6 +859,37 @@ const respondToNegotiation = async (req, res) => {
         }
 
         application.offeredBudgetStatus = action === 'accept' ? 'accepted' : 'rejected';
+
+        // SYNC EXISTING HIRE: Update agreedBudget based on seeker's response
+        const existingHire = job.hires.find(h => {
+            const hId = (h.freelancer._id || h.freelancer).toString();
+            return hId === req.user.id || hId === (req.user._id || '').toString();
+        });
+
+        if (existingHire) {
+            // Escrow funded = budget is immutable, cannot change either way
+            if (existingHire.escrowAmount > 0) {
+                return res.status(400).json({
+                    message: 'The contract budget cannot be changed — payment has already been deposited into escrow.'
+                });
+            }
+
+            if (action === 'accept') {
+                // Lock the contract at the agreed negotiated price
+                console.log(`[Negotiate] ACCEPT — Syncing hire agreedBudget ₹${existingHire.agreedBudget} → ₹${application.offeredBudget}`);
+                existingHire.agreedBudget = application.offeredBudget;
+            } else {
+                // Seeker rejected — revert the auto-accepted price back to the job's max budget
+                const fallbackBudget = job.maxBudget > 0
+                    ? job.maxBudget
+                    : job.budget > 0
+                        ? job.budget
+                        : (parseInt((job.salary || '').replace(/\D/g, '')) || 0);
+                console.log(`[Negotiate] REJECT — Reverting hire agreedBudget ₹${existingHire.agreedBudget} → ₹${fallbackBudget} (max budget)`);
+                existingHire.agreedBudget = fallbackBudget;
+            }
+            job.markModified('hires');
+        }
 
         let isDirectHireAccepted = false;
         if (application.status === 'offered') {
@@ -867,6 +922,7 @@ const respondToNegotiation = async (req, res) => {
 
         await job.save();
 
+        const actionText = action === 'accept' ? 'accepted' : 'rejected';
         if (isDirectHireAccepted) {
             await Notification.create({
                 recipient: (job.employer._id || job.employer),
@@ -875,14 +931,16 @@ const respondToNegotiation = async (req, res) => {
                 content: `A freelancer has accepted your direct hire offer for ${job.title}! The contract is now active.`,
                 link: `/pro/job/${job._id}/applications`
             });
+            await notifyUser((job.employer._id || job.employer), 'Direct Hire Accepted', `A freelancer accepted your offer for ${job.title}.`, `/pro/job/${job._id}/applications`, true, 'Direct Hire Accepted!', `<p>A freelancer has accepted your direct hire offer for <strong>${job.title}</strong>. The contract is now active.</p>`, 'applicationUpdates');
         } else {
             await Notification.create({
                 recipient: (job.employer._id || job.employer),
                 sender: req.user._id,
                 type: 'negotiation',
-                content: `A freelancer has ${action}ed the negotiated budget for ${job.title}.`,
+                content: `A freelancer has ${actionText} the negotiated budget of ₹${application.offeredBudget} for ${job.title}.`,
                 link: `/pro/job/${job._id}/applications`
             });
+            await notifyUser((job.employer._id || job.employer), `Budget Offer ${actionText.charAt(0).toUpperCase() + actionText.slice(1)}`, `A freelancer ${actionText} the ₹${application.offeredBudget} offer for ${job.title}.`, `/pro/job/${job._id}/applications`, true, `Budget Offer ${actionText.charAt(0).toUpperCase() + actionText.slice(1)}`, `<p>A freelancer has <strong>${actionText}</strong> the negotiated budget of <strong>₹${application.offeredBudget}</strong> for <strong>${job.title}</strong>.</p>`, 'applicationUpdates');
         }
 
         res.status(200).json(job);

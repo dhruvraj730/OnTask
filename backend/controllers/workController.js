@@ -38,15 +38,28 @@ const hireTasker = async (req, res) => {
             return res.status(401).json({ message: 'Not authorized' });
         }
 
-        const salaryNum = parseInt(job.salary.replace(/\D/g, '')) || 0;
+        // Check if an application with a negotiated budget exists for this seeker
+        const application = job.applications?.find(app => (app.applicant._id || app.applicant).toString() === req.params.userId);
+        let agreedBudget = 0;
+
+        if (application && (application.offeredBudgetStatus === 'accepted' || application.offeredBudgetStatus === 'pending') && application.offeredBudget > 0) {
+            // Use negotiated price; auto-accept if pending
+            if (application.offeredBudgetStatus === 'pending') {
+                application.offeredBudgetStatus = 'accepted';
+            }
+            agreedBudget = application.offeredBudget;
+        } else {
+            // Fall back to parsing job salary
+            agreedBudget = parseInt(job.salary.replace(/\D/g, '')) || 100;
+        }
 
         const existingHire = job.hires.find(h => h.freelancer.toString() === req.params.userId);
         if (!existingHire) {
             job.hires.push({
                 freelancer: req.params.userId,
                 status: 'in_progress',
-                agreedBudget: salaryNum > 0 ? salaryNum : 100,
-                escrowAmount: salaryNum > 0 ? salaryNum : 100,
+                agreedBudget,
+                escrowAmount: agreedBudget,
                 paidAmount: 0
             });
         }

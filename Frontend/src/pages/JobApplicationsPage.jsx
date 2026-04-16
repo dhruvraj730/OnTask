@@ -288,9 +288,12 @@ const JobApplicationsPage = () => {
                                                     </button>
                                                     <button
                                                         onClick={() => setNegotiateModal({ open: true, applicantId: app.applicant._id, applicantName: app.applicant.name, amount: '' })}
-                                                        className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 rounded-xl text-sm font-bold hover:bg-gray-50 transition-all shadow-sm text-emerald-600"
+                                                        disabled={app.offeredBudgetStatus === 'pending'}
+                                                        title={app.offeredBudgetStatus === 'pending' ? 'Waiting for seeker to respond to your current offer' : 'Send a revised budget offer'}
+                                                        className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all shadow-sm ${app.offeredBudgetStatus === 'pending' ? 'bg-amber-50 border border-amber-200 text-amber-500 cursor-not-allowed opacity-80' : 'bg-white border border-gray-200 hover:bg-gray-50 text-emerald-600'}`}
                                                     >
-                                                        <Sparkles className="w-4 h-4" /> Negotiate Price
+                                                        <Sparkles className="w-4 h-4" />
+                                                        {app.offeredBudgetStatus === 'pending' ? 'Awaiting Reply...' : 'Negotiate Price'}
                                                     </button>
                                                     <button
                                                         onClick={() => handleReject(app.applicant._id)}
@@ -302,9 +305,27 @@ const JobApplicationsPage = () => {
                                                         onClick={() => {
                                                             const isRangeJob = job.pricingType === 'range' || (job.minBudget > 0 && job.maxBudget > 0);
                                                             if (isRangeJob) {
-                                                                // For range jobs, open the confirmation modal
-                                                                const initialAmount = app.offeredBudgetStatus === 'accepted' ? app.offeredBudget : job.maxBudget;
-                                                                const isReadOnly = app.offeredBudgetStatus === 'accepted' || app.offeredBudgetStatus === 'none' || !app.offeredBudgetStatus;
+                                                                // Determine the best default amount to show in the modal
+                                                                let initialAmount;
+                                                                let isReadOnly;
+                                                                if (app.offeredBudgetStatus === 'accepted') {
+                                                                    // Negotiation settled — locked to the accepted price, cannot change
+                                                                    initialAmount = app.offeredBudget;
+                                                                    isReadOnly = true;
+                                                                } else if (app.offeredBudgetStatus === 'pending') {
+                                                                    // Provider's own pending offer — hiring commits to this price, read-only
+                                                                    initialAmount = app.offeredBudget;
+                                                                    isReadOnly = true;
+                                                                } else {
+                                                                    // No offer, or offer was rejected — default to max budget, editable
+                                                                    // Fallback chain: maxBudget → budget → parse salary string
+                                                                    initialAmount = job.maxBudget > 0
+                                                                        ? job.maxBudget
+                                                                        : job.budget > 0
+                                                                            ? job.budget
+                                                                            : (parseInt((job.salary || '').replace(/\D/g, '')) || 0);
+                                                                    isReadOnly = false;
+                                                                }
                                                                 setHireModal({ open: true, applicant: app.applicant, amount: initialAmount, isReadOnlyBudget: isReadOnly });
                                                             } else {
                                                                 // For fixed jobs, simple confirm
@@ -335,6 +356,44 @@ const JobApplicationsPage = () => {
                                                             <p className="text-xl font-black">₹{app.offeredBudget}</p>
                                                         </div>
                                                     )}
+                                                    {app.offeredBudgetStatus === 'rejected' && (
+                                                        <div className="bg-orange-50 border border-orange-200 p-4 rounded-xl flex justify-between items-center">
+                                                            <div>
+                                                                <p className="text-[10px] font-bold uppercase text-orange-500 mb-1">Offer Rejected by Seeker</p>
+                                                                <p className="text-sm font-bold text-orange-800">Reverted to Max Budget</p>
+                                                            </div>
+                                                            <p className="text-xl font-black text-orange-700">₹{job.maxBudget || job.budget}</p>
+                                                        </div>
+                                                    )}
+                                                    {/* Post-hire Budget Amendment: only for no-offer or rejected-offer cases, and only before escrow */}
+                                                    {(() => {
+                                                        const hireRecord = job.hires?.find(h => (h.freelancer?._id || h.freelancer)?.toString() === app.applicant?._id?.toString());
+                                                        const escrowFunded = hireRecord && hireRecord.escrowAmount > 0;
+                                                        const budgetLockedByAgreement = app.offeredBudgetStatus === 'accepted';
+
+                                                        if (escrowFunded) {
+                                                            return (
+                                                                <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-700 text-xs font-bold">
+                                                                    <span>🔒</span> Budget locked — escrow funded.
+                                                                </div>
+                                                            );
+                                                        }
+                                                        if (budgetLockedByAgreement) {
+                                                            return (
+                                                                <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-xs font-bold">
+                                                                    <span>✅</span> Budget agreed — no further negotiation needed.
+                                                                </div>
+                                                            );
+                                                        }
+                                                        return (
+                                                            <button
+                                                                onClick={() => setNegotiateModal({ open: true, applicantId: app.applicant._id, applicantName: app.applicant.name, amount: '' })}
+                                                                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold hover:bg-gray-50 transition-all shadow-sm text-emerald-600 w-full justify-center"
+                                                            >
+                                                                <Sparkles className="w-3 h-3" /> Amend Budget
+                                                            </button>
+                                                        );
+                                                    })()}
                                                 </div>
                                             )}
                                             {app.status === 'rejected' && (
