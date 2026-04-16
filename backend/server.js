@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv').config();
 const cors = require('cors');
+const path = require('path');
 const passport = require('passport');
 require('./config/passport.js');  
 
@@ -53,6 +54,8 @@ app.use(cors({
     origin: '*', // Allow all origins for demo
     credentials: true
 }));
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Request Logger Middleware
 app.use((req, res, next) => {

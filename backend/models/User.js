@@ -24,6 +24,14 @@ const userSchema = mongoose.Schema({
         type: String,
         default: ''
     },
+    twoFactorSecret: {
+        type: String,
+        default: ''
+    },
+    isTwoFactorEnabled: {
+        type: Boolean,
+        default: false
+    },
     fcmToken: {
         type: String,
         default: ''
@@ -136,6 +144,10 @@ const userSchema = mongoose.Schema({
         enum: ['job_seeker', 'employer'],
         default: 'job_seeker'
     },
+    isActive: {
+        type: Boolean,
+        default: true
+    },
     // Enhanced Tasker Profile
     professionalTitle: {
         type: String,
@@ -150,13 +162,26 @@ const userSchema = mongoose.Schema({
     settings: {
         notifications: {
             email: { type: Boolean, default: true },
-            push: { type: Boolean, default: true }
+            push: { type: Boolean, default: true },
+            jobAlerts: { type: Boolean, default: true },
+            applicationUpdates: { type: Boolean, default: true },
+            messages: { type: Boolean, default: true },
+            payments: { type: Boolean, default: true },
+            workUpdates: { type: Boolean, default: true }
         },
         privacy: {
             profileVisible: { type: Boolean, default: true },
             showOnlineStatus: { type: Boolean, default: true }
         }
-    }
+    },
+    portfolio: [{
+        title: { type: String, required: true },
+        description: { type: String, required: true },
+        imageUrl: { type: String },
+        projectUrl: { type: String },
+        skills: { type: [String], default: [] },
+        completedAt: { type: Date, default: Date.now }
+    }]
 }, {
     timestamps: true
 });

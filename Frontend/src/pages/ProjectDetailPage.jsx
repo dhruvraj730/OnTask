@@ -6,6 +6,7 @@ import GlassContainer from '../components/premium/GlassContainer';
 import AuthContext from '../context/AuthContext';
 import PaymentModal from '../components/PaymentModal';
 import FeedbackModal from '../components/FeedbackModal';
+import TipModal from '../components/TipModal';
 
 const ProjectDetailPage = () => {
     const { id } = useParams();
@@ -15,13 +16,16 @@ const ProjectDetailPage = () => {
     const [loading, setLoading] = useState(true);
     const [updateModal, setUpdateModal] = useState(false);
     const [applyModal, setApplyModal] = useState(false);
-    const [newUpdate, setNewUpdate] = useState({ description: '', imageUrl: '', progress: 0 });
+    const [newUpdate, setNewUpdate] = useState({ description: '', progress: 0 });
+    const [updateFile, setUpdateFile] = useState(null);
+    const [updatePreview, setUpdatePreview] = useState(null);
     const [proposal, setProposal] = useState('');
     const [applicationAnswers, setApplicationAnswers] = useState([]);
     const [hasApplied, setHasApplied] = useState(false);
     const [reviewModal, setReviewModal] = useState({ open: false, updateId: null, action: '', reason: '', overriddenProgress: 0, currentProgressMax: 0 });
     const [payModalHire, setPayModalHire] = useState(null);
     const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+    const [tipModalOpen, setTipModalOpen] = useState(false);
     const [feedbackTarget, setFeedbackTarget] = useState(null);
 
     const fetchProject = async () => {
@@ -56,14 +60,42 @@ const ProjectDetailPage = () => {
 
     const handleAddUpdate = async () => {
         try {
-            await axios.post(`/api/jobs/${id}/update`, newUpdate, {
-                headers: { Authorization: `Bearer ${token}` }
+            const formData = new FormData();
+            formData.append('description', newUpdate.description);
+            formData.append('progress', newUpdate.progress);
+            
+            if (updateFile) {
+                formData.append('work_image', updateFile);
+            }
+
+            const res = await axios.post(`/api/jobs/${id}/update`, formData, {
+                headers: { 
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data'
+                }
             });
+            
             await fetchProject();
             setUpdateModal(false);
-            setNewUpdate({ description: '', imageUrl: '', progress: 0 });
+            setNewUpdate({ description: '', progress: 0 });
+            setUpdateFile(null);
+            setUpdatePreview(null);
+            toast.success("Progress update submitted!");
         } catch (err) {
-            alert("Error adding update");
+            console.error(err);
+            toast.error(err.response?.data?.message || "Error adding update");
+        }
+    };
+
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setUpdateFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setUpdatePreview(reader.result);
+            };
+            reader.readAsDataURL(file);
         }
     };
 
@@ -170,7 +202,7 @@ const ProjectDetailPage = () => {
                 
                 if (hireWithUpdate && hireWithUpdate.progress >= 100 && !hireWithUpdate.hasBeenReviewed) {
                     setFeedbackTarget(hireWithUpdate);
-                    setFeedbackModalOpen(true);
+                    setTipModalOpen(true);
                 }
             }
 
@@ -209,8 +241,7 @@ const ProjectDetailPage = () => {
 
     const formatSalary = (salary) => {
         if (!salary) return 'N/A';
-        const str = salary.toString();
-        return str.includes('$') ? str.replaceAll('$', '₹') : (str.includes('₹') ? str : `₹${str}`);
+        return `₹${salary.toString().replaceAll('$', '')}`;
     };
 
     return (
@@ -342,6 +373,12 @@ const ProjectDetailPage = () => {
                                             <p className="text-xs font-bold text-gray-400 uppercase mb-1">Paid Amount</p>
                                             <p className="text-lg font-bold text-blue-600">₹{myContract.paidAmount}</p>
                                         </div>
+                                        {myContract.tipAmount > 0 && (
+                                            <div className="text-right">
+                                                <p className="text-xs font-bold text-violet-400 uppercase mb-1">Tip Received</p>
+                                                <p className="text-lg font-bold text-violet-600">₹{myContract.tipAmount}</p>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="pt-6 border-t border-gray-50 space-y-6">
                                         <div>
@@ -445,6 +482,12 @@ const ProjectDetailPage = () => {
                                                         )}
                                                     </div>
                                                 </div>
+                                                {hire.tipAmount > 0 && (
+                                                    <div>
+                                                        <p className="text-[10px] font-bold text-violet-400 uppercase mb-1">Tip Given</p>
+                                                        <p className="font-bold text-violet-600 text-lg">₹{hire.tipAmount}</p>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             <div>
@@ -468,7 +511,7 @@ const ProjectDetailPage = () => {
                                                     <button
                                                         onClick={() => {
                                                             setFeedbackTarget(hire);
-                                                            setFeedbackModalOpen(true);
+                                                            setTipModalOpen(true);
                                                         }}
                                                         className="px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 mx-auto"
                                                     >
@@ -533,16 +576,27 @@ const ProjectDetailPage = () => {
                                 ></textarea>
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2 font-sans">Image URL (Optional)</label>
-                                <div className="relative">
-                                    <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                                    <input
-                                        type="url"
-                                        placeholder="https://..."
-                                        className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-sans"
-                                        value={newUpdate.imageUrl}
-                                        onChange={(e) => setNewUpdate({ ...newUpdate, imageUrl: e.target.value })}
-                                    />
+                                <label className="block text-sm font-bold text-gray-700 mb-2 font-sans">Proof of Work (Optional)</label>
+                                <div className="flex gap-4 items-center">
+                                    <div className="relative group w-24 h-24 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl overflow-hidden flex items-center justify-center">
+                                        {updatePreview ? (
+                                            <img src={updatePreview} alt="Preview" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <ImageIcon className="w-6 h-6 text-gray-300" />
+                                        )}
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleFileChange}
+                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 cursor-pointer shadow-sm">
+                                            <Plus className="w-3 h-3" /> {updateFile ? 'Change File' : 'Select Screenshot'}
+                                            <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                             <div>
@@ -741,9 +795,25 @@ const ProjectDetailPage = () => {
                         const freshHire = updatedJob?.hires.find(h => (h.freelancer?._id || h.freelancer) === targetFreelancerId);
                         if (freshHire && !freshHire.hasBeenReviewed) {
                             setFeedbackTarget(freshHire);
-                            setFeedbackModalOpen(true);
+                            setTipModalOpen(true);
                         }
                     }
+                }}
+            />
+
+            {/* Tip Modal */}
+            <TipModal
+                isOpen={tipModalOpen}
+                onClose={() => setTipModalOpen(false)}
+                onSkip={() => { setTipModalOpen(false); setFeedbackModalOpen(true); }}
+                freelancerName={feedbackTarget?.freelancer?.name}
+                jobId={id}
+                hireId={feedbackTarget?._id}
+                user={user}
+                onTipSuccess={() => {
+                    setTipModalOpen(false);
+                    setFeedbackModalOpen(true);
+                    fetchProject();
                 }}
             />
 
@@ -799,8 +869,12 @@ const TimelineUpdates = ({ updates, hiredAt, isEmployer, handleOpenReview }) => 
                                     </span>
                                 </div>
                             </div>
-                            {update.imageUrl && (
-                                <img src={update.imageUrl} alt="Project Update" className="w-full h-48 object-cover rounded-xl mt-4 border border-gray-100" />
+                             {update.imageUrl && (
+                                <img 
+                                    src={update.imageUrl.startsWith('/') ? `http://localhost:5000${update.imageUrl}` : update.imageUrl} 
+                                    alt="Project Update" 
+                                    className="w-full h-48 object-cover rounded-xl mt-4 border border-gray-100" 
+                                />
                             )}
 
                             {isEmployer && update.status === 'pending' && (

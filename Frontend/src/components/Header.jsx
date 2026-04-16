@@ -152,8 +152,8 @@ export function Header() {
                             </Link>
                             {/* Notifications Dropdown */}
                             <div className="relative" ref={notifRef}>
-                                <button 
-                                    onClick={() => setShowNotifications(!showNotifications)} 
+                                <button
+                                    onClick={() => setShowNotifications(!showNotifications)}
                                     className="relative text-gray-500 hover:text-blue-600 transition-colors focus:outline-none flex items-center mt-1"
                                 >
                                     <Bell className="w-6 h-6" />
@@ -163,7 +163,7 @@ export function Header() {
                                         </span>
                                     )}
                                 </button>
-                                
+
                                 {showNotifications && (
                                     <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white shadow-2xl rounded-2xl border border-gray-100 overflow-hidden z-50">
                                         <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
@@ -181,8 +181,8 @@ export function Header() {
                                                 </div>
                                             ) : (
                                                 notifications.map(notif => (
-                                                    <div 
-                                                        key={notif._id} 
+                                                    <div
+                                                        key={notif._id}
                                                         onClick={() => handleNotificationClick(notif)}
                                                         className={`p-4 border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors flex gap-3 ${!notif.read ? 'bg-blue-50/30' : ''}`}
                                                     >
@@ -212,9 +212,42 @@ export function Header() {
 
                             {/* Dropdowns */}
                             <div className="flex items-center gap-6">
-                                <button className="flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-blue-600">
-                                    Tools <ChevronDown className="w-4 h-4" />
-                                </button>
+                                <div className="flex items-center gap-1 cursor-pointer group relative">
+                                    <button className="flex items-center gap-1 text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
+                                        Tools <ChevronDown className="w-4 h-4 transition-transform group-hover:rotate-180" />
+                                    </button>
+
+                                    {/* Tools Dropdown */}
+                                    <div className="absolute left-0 top-full pt-2 w-52 opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0 z-[60]">
+                                        <div className="bg-white shadow-xl rounded-xl border border-gray-100 py-3 overflow-hidden">
+                                            <div className="px-4 pb-2 border-b border-gray-50 mb-2">
+                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">AI Powered Tools</p>
+                                            </div>
+                                            
+                                            {user.role === 'employer' && (
+                                                <Link to="/pro/job/create?mode=ai" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-all">
+                                                    <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+                                                        <span className="text-sm">✨</span>
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold leading-tight">AI Job Poster</p>
+                                                        <p className="text-[10px] text-gray-500">Auto-generate posts</p>
+                                                    </div>
+                                                </Link>
+                                            )}
+
+                                            <Link to={user.role === 'employer' ? '/pro/dashboard?chat=open' : '/tasker/dashboard?chat=open'} className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-all">
+                                                <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600">
+                                                    <span className="text-sm">🤖</span>
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold leading-tight">AI Chat Bot</p>
+                                                    <p className="text-[10px] text-gray-500">Intelligent assistant</p>
+                                                </div>
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </div>
 
                                 <div className="flex items-center gap-1 cursor-pointer group relative">
                                     <Link to="/profile" className="flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-blue-600">
@@ -225,8 +258,8 @@ export function Header() {
                                     <div className="absolute right-0 top-full pt-2 w-48 opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">
                                         <div className="bg-white shadow-xl rounded-xl border border-gray-100 py-2 overflow-hidden">
                                             <div className="px-4 py-2 border-b border-gray-50 mb-1">
-                                                <p className="font-bold text-gray-900 truncate">{user.name}</p>
-                                                <p className="text-xs text-gray-500 capitalize">{user.role.replace('_', ' ')}</p>
+                                                <p className="font-bold text-gray-900 truncate">{user?.name || 'User'}</p>
+                                                <p className="text-xs text-gray-500 capitalize">{user?.role?.replace('_', ' ') || 'Guest'}</p>
                                             </div>
                                             <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600">Profile</Link>
                                             <Link to="/settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600">Settings</Link>

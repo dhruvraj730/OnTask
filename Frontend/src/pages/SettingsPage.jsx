@@ -1,11 +1,13 @@
 import React, { useState, useContext, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AuthContext from '../context/AuthContext';
 import GlassContainer from '../components/premium/GlassContainer';
 import axios from 'axios';
-import { Shield, Bell, Lock, Eye, Save, AlertCircle } from 'lucide-react';
+import { Shield, Bell, Lock, Eye, Save, AlertCircle, Trash2 } from 'lucide-react';
 
 const SettingsPage = () => {
-    const { user, token } = useContext(AuthContext);
+    const { user, token, logout } = useContext(AuthContext);
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('security');
     const [settings, setSettings] = useState({
         notifications: {
@@ -24,9 +26,37 @@ const SettingsPage = () => {
         confirmPassword: ''
     });
 
+    const [isTwoFactorEnabled, setIsTwoFactorEnabled] = useState(false);
+    const [twoFactorToken, setTwoFactorToken] = useState('');
+    const [qrCodeData, setQrCodeData] = useState('');
+    const [secret2FA, setSecret2FA] = useState('');
+    const [showSetup2FA, setShowSetup2FA] = useState(false);
+
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
+
+    const handleDeactivateAccount = async () => {
+        const confirmed = window.confirm(
+            "ARE YOU SURE? \n\nDeactivating your account will hide your profile and close all your active job postings. You will be logged out immediately."
+        );
+
+        if (!confirmed) return;
+
+        setSaving(true);
+        try {
+            await axios.put('/api/auth/deactivate', {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            alert("Account deactivated successfully. You will now be logged out.");
+            logout();
+            navigate('/login');
+        } catch (error) {
+            setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to deactivate account' });
+        } finally {
+            setSaving(false);
+        }
+    };
 
     useEffect(() => {
         fetchSettings();
@@ -40,6 +70,9 @@ const SettingsPage = () => {
             });
             if (res.data.settings) {
                 setSettings(res.data.settings);
+            }
+            if (res.data.isTwoFactorEnabled !== undefined) {
+                setIsTwoFactorEnabled(res.data.isTwoFactorEnabled);
             }
         } catch (error) {
             console.error("Error fetching settings:", error);
@@ -91,6 +124,54 @@ const SettingsPage = () => {
             setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
         } catch (error) {
             setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to change password' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleGenerate2FA = async () => {
+        try {
+            const res = await axios.get('/api/auth/2fa/generate', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setQrCodeData(res.data.qrcode);
+            setSecret2FA(res.data.secret);
+            setShowSetup2FA(true);
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Error generating 2FA secret' });
+        }
+    };
+
+    const handleEnable2FA = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        try {
+            await axios.post('/api/auth/2fa/enable', { code: twoFactorToken }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setMessage({ type: 'success', text: '2FA enabled successfully' });
+            setIsTwoFactorEnabled(true);
+            setShowSetup2FA(false);
+            setTwoFactorToken('');
+        } catch (error) {
+            setMessage({ type: 'error', text: error.response?.data?.message || 'Invalid 2FA code' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDisable2FA = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        try {
+            await axios.post('/api/auth/2fa/disable', { code: twoFactorToken }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setMessage({ type: 'success', text: '2FA disabled successfully' });
+            setIsTwoFactorEnabled(false);
+            setTwoFactorToken('');
+        } catch (error) {
+            setMessage({ type: 'error', text: error.response?.data?.message || 'Invalid 2FA code' });
         } finally {
             setSaving(false);
         }
@@ -184,10 +265,58 @@ const SettingsPage = () => {
                                         <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                                             Two-Factor Authentication
                                         </h3>
-                                        <p className="text-gray-500 text-sm mb-4">Add an extra layer of security to your account.</p>
-                                        <button className="px-4 py-2 border border-blue-600 text-blue-600 font-bold rounded-lg hover:bg-blue-50 transition-colors">
-                                            Setup 2FA
-                                        </button>
+                                        {isTwoFactorEnabled ? (
+                                            <div className="space-y-4">
+                                                <div className="flex items-center gap-2 text-green-700 bg-green-50 p-3 rounded-lg border border-green-200">
+                                                    <Shield className="w-5 h-5" />
+                                                    <span className="font-medium">2FA is currently enabled</span>
+                                                </div>
+                                                <p className="text-gray-500 text-sm">To disable 2FA, enter a code from your authenticator app below.</p>
+                                                <form onSubmit={handleDisable2FA} className="flex flex-col gap-3 max-w-sm">
+                                                    <input
+                                                        type="text"
+                                                        required
+                                                        placeholder="6-digit code"
+                                                        value={twoFactorToken}
+                                                        onChange={(e) => setTwoFactorToken(e.target.value)}
+                                                        className="border border-gray-300 rounded-lg py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                    <button type="submit" disabled={saving} className="bg-red-50 text-red-600 font-bold px-4 py-2 rounded-lg border border-red-200 hover:bg-red-100 transition-colors disabled:opacity-50">
+                                                        Disable 2FA
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        ) : showSetup2FA ? (
+                                            <div className="space-y-4">
+                                                <p className="text-gray-700 font-medium">1. Scan this QR Code with your Authenticator App</p>
+                                                <div className="bg-white p-2 border border-gray-200 rounded-xl inline-block">
+                                                     <img src={qrCodeData} alt="2FA QR Code" className="w-48 h-48" />
+                                                </div>
+                                                <p className="text-sm text-gray-500">Or manually enter this secret: <span className="font-mono text-gray-800 bg-gray-100 px-2 py-1 rounded">{secret2FA}</span></p>
+                                                <p className="text-gray-700 font-medium mt-4">2. Enter the 6-digit code</p>
+                                                <form onSubmit={handleEnable2FA} className="flex flex-col gap-3 max-w-sm">
+                                                    <input
+                                                        type="text"
+                                                        required
+                                                        placeholder="6-digit code"
+                                                        value={twoFactorToken}
+                                                        onChange={(e) => setTwoFactorToken(e.target.value)}
+                                                        className="border border-gray-300 rounded-lg py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                    <button type="submit" disabled={saving} className="bg-blue-600 text-white font-bold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
+                                                        Enable 2FA
+                                                    </button>
+                                                    <button type="button" onClick={() => setShowSetup2FA(false)} className="text-sm text-gray-500 hover:underline">Cancel</button>
+                                                </form>
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                <p className="text-gray-500 text-sm mb-4">Add an extra layer of security to your account.</p>
+                                                <button onClick={handleGenerate2FA} className="px-4 py-2 border border-blue-600 text-blue-600 font-bold rounded-lg hover:bg-blue-50 transition-colors">
+                                                    Setup 2FA
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -218,6 +347,30 @@ const SettingsPage = () => {
                                                     <input type="checkbox" checked={settings.notifications.push} onChange={() => handleSettingsChange('notifications', 'push')} className="sr-only peer" />
                                                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                                                 </label>
+                                            </div>
+
+                                            <div className="pt-4 border-t border-gray-100">
+                                                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Specific Alerts</h4>
+                                                <div className="space-y-4">
+                                                    {[
+                                                        { id: 'jobAlerts', label: 'Job Alerts', desc: 'New job opportunities matching your profile.' },
+                                                        { id: 'applicationUpdates', label: 'Application Updates', desc: 'Alerts when your application status changes.' },
+                                                        { id: 'messages', label: 'Messages', desc: 'Real-time notifications for new chat messages.' },
+                                                        { id: 'payments', label: 'Payments & Escrow', desc: 'Updates on deposits and payment releases.' },
+                                                        { id: 'workUpdates', label: 'Work Updates', desc: 'Progress verification and milestone alerts.' }
+                                                    ].map(pref => (
+                                                        <div key={pref.id} className="flex items-center justify-between">
+                                                            <div>
+                                                                <p className="font-bold text-gray-800 text-sm">{pref.label}</p>
+                                                                <p className="text-[10px] text-gray-500">{pref.desc}</p>
+                                                            </div>
+                                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                                <input type="checkbox" checked={settings.notifications[pref.id] ?? true} onChange={() => handleSettingsChange('notifications', pref.id)} className="sr-only peer" />
+                                                                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                                            </label>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -280,8 +433,12 @@ const SettingsPage = () => {
                                         <p className="font-bold text-gray-900">Deactivate Account</p>
                                         <p className="text-sm text-gray-500">Temporarily hide your profile and jobs.</p>
                                     </div>
-                                    <button className="px-4 py-2 border border-red-600 text-red-600 font-bold rounded-lg hover:bg-red-50 transition-colors text-sm">
-                                        Deactivate
+                                    <button 
+                                        onClick={handleDeactivateAccount}
+                                        disabled={saving}
+                                        className="px-4 py-2 border border-red-600 text-red-600 font-bold rounded-lg hover:bg-red-50 transition-colors text-sm disabled:opacity-50"
+                                    >
+                                        {saving ? 'Deactivating...' : 'Deactivate'}
                                     </button>
                                 </div>
                             </GlassContainer>

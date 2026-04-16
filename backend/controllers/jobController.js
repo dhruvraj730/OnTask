@@ -4,18 +4,31 @@ const Notification = require('../models/Notification');
 const { sendPushNotification } = require('../config/pushNotificationService');
 const { sendEmailNotification } = require('../config/emailNotificationService');
 
-const notifyUser = async (recipientId, title, content, link, sendEmail = false, emailSubject = '', emailBody = '') => {
+const notifyUser = async (recipientId, title, content, link, sendEmail = false, emailSubject = '', emailBody = '', category = '') => {
     try {
-        const user = await User.findById(recipientId).select('email fcmToken name');
-        if (!user) return;
-        if (user.fcmToken) {
-            sendPushNotification(user.fcmToken, title, content, link).catch(console.error);
+        if (!recipientId) return;
+        const user = await User.findById(recipientId).select('email fcmToken name settings');
+        if (!user) {
+            console.log(`[NOTIFY] User not found: ${recipientId}`);
+            return;
         }
-        if (sendEmail && user.email) {
-            sendEmailNotification(user.email, emailSubject || title, emailBody || content).catch(console.error);
+
+        const settings = user.settings?.notifications || {};
+        const isPushEnabled = settings.push !== false; // Default to true if not set
+        const isEmailEnabled = settings.email !== false;
+        const isCategoryEnabled = category ? (settings[category] !== false) : true;
+
+        if (user.fcmToken && isPushEnabled && isCategoryEnabled) {
+            console.log(`[NOTIFY] Sending push to ${user.name} (Category: ${category || 'general'})`);
+            sendPushNotification(user.fcmToken, title, content, link).catch(err => console.error('[NOTIFY] Push Failed:', err.message));
+        }
+        
+        if (sendEmail && user.email && isEmailEnabled && isCategoryEnabled) {
+            console.log(`[NOTIFY] Sending email to ${user.email} (Category: ${category || 'general'})`);
+            sendEmailNotification(user.email, emailSubject || title, emailBody || content).catch(err => console.error('[NOTIFY] Email Failed:', err.message));
         }
     } catch (err) {
-        console.error('Error in external notifications:', err);
+        console.error('Error in external notifications helper:', err.message);
     }
 };
 
@@ -54,6 +67,15 @@ const createJob = async (req, res) => {
         if (!location) return res.status(400).json({ message: 'Please add a location' });
         if (!salary) return res.status(400).json({ message: 'Please add a salary/rate' });
         if (!startDate) return res.status(400).json({ message: 'Please add a starting date' });
+
+        // Validate startDate is not in the past
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const jobStartDate = new Date(startDate);
+        if (jobStartDate < today) {
+            return res.status(400).json({ message: 'Start date cannot be in the past' });
+        }
+
         if (!duration || !duration.value || !duration.unit) return res.status(400).json({ message: 'Please add a work duration' });
         
         // Check for duplicate job
@@ -97,7 +119,7 @@ const createJob = async (req, res) => {
 
         // Create notification for all job seekers
         try {
-            const jobSeekers = await User.find({ role: 'job_seeker' }, '_id fcmToken');
+            const jobSeekers = await User.find({ role: 'job_seeker' }, '_id fcmToken settings');
             const notifications = jobSeekers.map(js => ({
                 recipient: js._id,
                 sender: req.user._id,
@@ -109,7 +131,7 @@ const createJob = async (req, res) => {
 
             // Push notification to all
             jobSeekers.forEach(js => {
-                if (js.fcmToken) {
+                if (js.fcmToken && js.settings?.notifications?.push !== false && js.settings?.notifications?.jobAlerts !== false) {
                     sendPushNotification(js.fcmToken, 'New Job Alert', `New job posted: ${title}`, `/project/${job._id}`).catch(() => {});
                 }
             });
@@ -219,8 +241,11 @@ const releasePayment = async (req, res) => {
                 date: new Date()
             });
 
-            if (type === 'full') {
+            if (type === 'full' && hire.status !== 'completed') {
                 freelancer.completedProjects += 1;
+                hire.status = 'completed';
+                hire.progress = 100;
+                hire.verifiedProgress = 100;
             }
 
             await freelancer.save();
@@ -249,7 +274,7 @@ const releasePayment = async (req, res) => {
             content: `Payment of ₹${amountToPay} has been released for ${job.title} (${type} payment).`,
             link: `/project/${job._id}`
         });
-        await notifyUser(freelancerId, 'Payment Released', `Payment of ₹${amountToPay} has been released for ${job.title}.`, `/project/${job._id}`, true, 'Payment Released', `<p>Payment of <strong>₹${amountToPay}</strong> has been released for ${job.title} (${type} payment).</p>`);
+        await notifyUser(freelancerId, 'Payment Released', `Payment of ₹${amountToPay} has been released for ${job.title}.`, `/project/${job._id}`, true, 'Payment Released', `<p>Payment of <strong>₹${amountToPay}</strong> has been released for ${job.title} (${type} payment).</p>`, 'payments');
 
         res.status(200).json({
             message: `Payment of ₹${amountToPay} released successfully to ${freelancer?.name}`,
@@ -343,7 +368,7 @@ const scheduleInterview = async (req, res) => {
             content: `You have been invited to an interview for the job: ${job.title}.`,
             link: interviewLink
         });
-        await notifyUser((application.applicant._id || application.applicant), 'Interview Scheduled', `You have been invited to an interview for: ${job.title}`, interviewLink, true, 'Interview Invitation', `<p>You have been invited to an interview for the job: <strong>${job.title}</strong>.</p><p>Please join via this link: <a href="${interviewLink}">${interviewLink}</a></p>`);
+        await notifyUser((application.applicant._id || application.applicant), 'Interview Scheduled', `You have been invited to an interview for: ${job.title}`, interviewLink, true, 'Interview Invitation', `<p>You have been invited to an interview for the job: <strong>${job.title}</strong>.</p><p>Please join via this link: <a href="${interviewLink}">${interviewLink}</a></p>`, 'applicationUpdates');
 
         res.status(200).json(job);
     } catch (error) {
@@ -455,7 +480,7 @@ const hireApplicant = async (req, res) => {
             content: `Congratulations! You have been hired for the job: ${job.title}.`,
             link: `/project/${job._id}`
         });
-        await notifyUser((application.applicant._id || application.applicant), 'You got the job!', `Congratulations! You have been hired for: ${job.title}`, `/project/${job._id}`, true, 'Job Offer: Hired!', `<p>Congratulations! You have been hired for the job: <strong>${job.title}</strong>.</p>`);
+        await notifyUser((application.applicant._id || application.applicant), 'You got the job!', `Congratulations! You have been hired for: ${job.title}`, `/project/${job._id}`, true, 'Job Offer: Hired!', `<p>Congratulations! You have been hired for the job: <strong>${job.title}</strong>.</p>`, 'applicationUpdates');
 
         res.status(200).json(job);
     } catch (error) {
@@ -503,7 +528,7 @@ const rejectApplicant = async (req, res) => {
             content: `Your application for the job ${job.title} has been rejected.`,
             link: `/applications`
         });
-        await notifyUser((application.applicant._id || application.applicant), 'Application Update', `Your application for ${job.title} was rejected.`, `/applications`, true, 'Application Status Update', `<p>We regret to inform you that your application for the job <strong>${job.title}</strong> has been rejected.</p>`);
+        await notifyUser((application.applicant._id || application.applicant), 'Application Update', `Your application for ${job.title} was rejected.`, `/applications`, true, 'Application Status Update', `<p>We regret to inform you that your application for the job <strong>${job.title}</strong> has been rejected.</p>`, 'applicationUpdates');
 
         console.log("[Reject] Application rejected successfully");
         res.status(200).json(job);
@@ -518,7 +543,7 @@ const rejectApplicant = async (req, res) => {
 // @access  Private (Hired Tasker only)
 const addJobUpdate = async (req, res) => {
     try {
-        const { description, imageUrl, progress } = req.body;
+        const { description, progress } = req.body;
         const job = await Job.findById(req.params.id);
 
         if (!job) {
@@ -532,7 +557,7 @@ const addJobUpdate = async (req, res) => {
 
         const newUpdate = {
             description,
-            imageUrl: imageUrl || '',
+            imageUrl: req.file ? `/uploads/work_updates/${req.file.filename}` : '',
             date: new Date(),
             status: 'pending'
         };
@@ -557,7 +582,7 @@ const addJobUpdate = async (req, res) => {
             content: `New progress update from ${req.user.name} for "${job.title}"`,
             link: `/project/${job._id}`
         });
-        await notifyUser((job.employer._id || job.employer), 'Progress Update', `New progress update from ${req.user.name} for "${job.title}"`, `/project/${job._id}`, true, 'New Progress Update', `<p>${req.user.name} has submitted a new progress update for <strong>${job.title}</strong>.</p>`);
+        await notifyUser((job.employer._id || job.employer), 'Progress Update', `New progress update from ${req.user.name} for "${job.title}"`, `/project/${job._id}`, true, 'New Progress Update', `<p>${req.user.name} has submitted a new progress update for <strong>${job.title}</strong>.</p>`, 'workUpdates');
 
         res.status(200).json(job);
     } catch (error) {
@@ -622,8 +647,15 @@ const verifyJobUpdate = async (req, res) => {
             targetHire.progress = finalProgress;
             targetHire.verifiedProgress = finalProgress;
 
-            if (targetHire.progress >= 100) {
+            if (targetHire.progress >= 100 && targetHire.status !== 'completed') {
                 targetHire.status = 'completed';
+                
+                const freelancerIdObj = targetHire.freelancer._id || targetHire.freelancer;
+                const taskerToUpdate = await User.findById(freelancerIdObj);
+                if (taskerToUpdate) {
+                    taskerToUpdate.completedProjects = (taskerToUpdate.completedProjects || 0) + 1;
+                    await taskerToUpdate.save();
+                }
             }
         } else if (action === 'reject') {
             update.status = 'rejected';
@@ -671,7 +703,7 @@ const verifyJobUpdate = async (req, res) => {
             content: customContent,
             link: `/project/${job._id}`
         });
-        await notifyUser((targetHire.freelancer._id || targetHire.freelancer), 'Progress Update Verified', customContent, `/project/${job._id}`, true, 'Progress Verified', `<p>${customContent}</p>`);
+        await notifyUser((targetHire.freelancer._id || targetHire.freelancer), 'Progress Update Verified', customContent, `/project/${job._id}`, true, 'Progress Verified', `<p>${customContent}</p>`, 'workUpdates');
 
         res.status(200).json(populatedJob);
     } catch (error) {
@@ -739,7 +771,7 @@ const applyForJob = async (req, res) => {
             content: `${req.user.name} has applied for your job: ${job.title}`,
             link: `/pro/job/${job._id}/applications`
         });
-        await notifyUser((job.employer._id || job.employer), 'New Application', `${req.user.name} applied for your job: ${job.title}`, `/pro/job/${job._id}/applications`, true, 'New Job Application', `<p><strong>${req.user.name}</strong> has applied for your job: <strong>${job.title}</strong>.</p>`);
+        await notifyUser((job.employer._id || job.employer), 'New Application', `${req.user.name} applied for your job: ${job.title}`, `/pro/job/${job._id}/applications`, true, 'New Job Application', `<p><strong>${req.user.name}</strong> has applied for your job: <strong>${job.title}</strong>.</p>`, 'applicationUpdates');
 
         res.status(200).json(job);
     } catch (error) {
@@ -804,22 +836,157 @@ const respondToNegotiation = async (req, res) => {
 
         application.offeredBudgetStatus = action === 'accept' ? 'accepted' : 'rejected';
 
+        let isDirectHireAccepted = false;
+        if (application.status === 'offered') {
+            if (action === 'accept') {
+                application.status = 'hired';
+                isDirectHireAccepted = true;
+
+                job.hires.push({
+                    freelancer: req.user.id,
+                    status: 'in_progress',
+                    agreedBudget: application.offeredBudget || 0,
+                    paidAmount: 0,
+                    escrowAmount: 0,
+                });
+
+                const positionsRequired = Number(job.positionsRequired) || 1;
+                if (job.hires.length >= positionsRequired) {
+                    if (job.jobStatus === 'open') job.jobStatus = 'in_progress';
+                    job.applications.forEach(app => {
+                        if (app.status !== 'hired' && app.status !== 'rejected') {
+                            app.status = 'rejected';
+                        }
+                    });
+                    job.markModified('applications');
+                }
+            } else {
+                application.status = 'rejected';
+            }
+        }
+
         await job.save();
 
-        // Create Notification for employer
-        await Notification.create({
-            recipient: (job.employer._id || job.employer),
-            sender: req.user._id,
-            type: 'negotiation',
-            content: `A freelancer has ${action}ed the negotiated budget for ${job.title}.`,
-            link: `/pro/job/${job._id}/applications`
-        });
+        if (isDirectHireAccepted) {
+            await Notification.create({
+                recipient: (job.employer._id || job.employer),
+                sender: req.user._id,
+                type: 'application_update',
+                content: `A freelancer has accepted your direct hire offer for ${job.title}! The contract is now active.`,
+                link: `/pro/job/${job._id}/applications`
+            });
+        } else {
+            await Notification.create({
+                recipient: (job.employer._id || job.employer),
+                sender: req.user._id,
+                type: 'negotiation',
+                content: `A freelancer has ${action}ed the negotiated budget for ${job.title}.`,
+                link: `/pro/job/${job._id}/applications`
+            });
+        }
 
         res.status(200).json(job);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 }
+
+// @desc    Initiate a Direct Hire (offer/invite) to a freelancer
+// @route   POST /api/jobs/direct-hire
+// @access  Private (Employer only)
+const createDirectHire = async (req, res) => {
+    try {
+        const { mode, freelancerId, jobId, offerBudget, ...newJobFields } = req.body;
+
+        if (req.user.role !== 'employer') {
+            return res.status(403).json({ message: 'Only employers can initiate a direct hire.' });
+        }
+
+        if (!freelancerId) {
+            return res.status(400).json({ message: 'Freelancer ID is required.' });
+        }
+
+        const freelancer = await User.findById(freelancerId);
+        if (!freelancer || freelancer.role !== 'job_seeker') {
+            return res.status(404).json({ message: 'Valid Job Seeker not found.' });
+        }
+
+        let targetJob;
+
+        if (mode === 'existing') {
+            if (!jobId) return res.status(400).json({ message: 'Job ID is required for existing job mode.' });
+            targetJob = await Job.findById(jobId);
+            
+            if (!targetJob) return res.status(404).json({ message: 'Job not found.' });
+            
+            if (targetJob.employer.toString() !== req.user.id) {
+                return res.status(403).json({ message: 'Not authorized for this job.' });
+            }
+
+            const alreadyApplied = targetJob.applications.find(app => (app.applicant._id || app.applicant).toString() === freelancerId);
+            if (alreadyApplied) {
+                return res.status(400).json({ message: 'Freelancer is already an applicant for this job.' });
+            }
+        } else if (mode === 'new') {
+            const { title, description, startDate } = newJobFields;
+            if (!title || !description || !startDate) {
+                return res.status(400).json({ message: 'Title, description, and start date are required for a new contract.' });
+            }
+
+            // Validate startDate is not in the past
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const jobStartDate = new Date(startDate);
+            if (jobStartDate < today) {
+                return res.status(400).json({ message: 'Start date cannot be in the past' });
+            }
+
+            targetJob = await Job.create({
+                employer: req.user.id,
+                title,
+                description,
+                startDate,
+                company: newJobFields.company || req.user.companyName || 'Direct Contract',
+                location: newJobFields.location || 'Remote/TBD',
+                salary: newJobFields.salary || (offerBudget ? `₹${offerBudget}` : 'Negotiable'),
+                budget: offerBudget || newJobFields.budget || 0,
+                pricingType: 'fixed',
+                positionsRequired: 1,
+                duration: newJobFields.duration || { value: 1, unit: 'days' },
+                jobStatus: 'open'
+            });
+        } else {
+            return res.status(400).json({ message: 'Invalid mode. Must be "existing" or "new".' });
+        }
+
+        targetJob.applications.push({
+            applicant: freelancerId,
+            status: 'offered',
+            offeredBudget: Number(offerBudget) || 0,
+            offeredBudgetStatus: 'pending',
+            appliedAt: Date.now()
+        });
+
+        await targetJob.save();
+
+        await Notification.create({
+            recipient: freelancerId,
+            sender: req.user._id,
+            type: 'system',
+            content: `You received a direct hire offer for "${targetJob.title}" from ${req.user.name}.`,
+            link: `/applications`
+        });
+        await notifyUser(freelancerId, 'Direct Hire Offer', `You received a direct hire offer for "${targetJob.title}"`, `/applications`, true, 'Direct Offer!', `<p>You received a direct hire offer from <strong>${req.user.name}</strong> for the job <strong>${targetJob.title}</strong>.</p>`);
+
+        res.status(200).json(targetJob);
+    } catch (error) {
+        console.error("Direct Hire Critical Error:", error);
+        res.status(500).json({ 
+            message: error.message || 'An unexpected error occurred during direct hire creation',
+            details: error.stack 
+        });
+    }
+};
 
 module.exports = {
     getJobs,
@@ -834,5 +1001,6 @@ module.exports = {
     applyForJob,
     releasePayment,
     proposeNegotiation,
-    respondToNegotiation
+    respondToNegotiation,
+    createDirectHire
 }

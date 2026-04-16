@@ -1,7 +1,10 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const Job = require('../models/Job');
 const sendOtpMail = require('../emailVerify/sendOtpMail.js');
+const speakeasy = require('speakeasy');
+const qrcode = require('qrcode');
 
 // JWT token generator
 function generateToken(id) {
@@ -77,6 +80,11 @@ const updateUserProfile = async (req, res) => {
         if (user) {
             user.name = req.body.name || user.name;
             user.email = req.body.email || user.email;
+            
+            // Handle Avatar Upload
+            if (req.file) {
+                user.avatar = `/uploads/avatars/${req.file.filename}`;
+            }
 
             // Optional Logic: if password is sent, hash it (omitted for brevity unless requested)
             if (req.body.bio) user.bio = req.body.bio;
@@ -108,6 +116,7 @@ const updateUserProfile = async (req, res) => {
                 name: updatedUser.name,
                 email: updatedUser.email,
                 role: updatedUser.role,
+                avatar: updatedUser.avatar,
                 bio: updatedUser.bio,
                 skills: updatedUser.skills,
                 hourlyRate: updatedUser.hourlyRate,
@@ -140,6 +149,20 @@ const loginUser = async (req, res) => {
         const user = await User.findOne({ email });
 
         if (user && (await bcrypt.compare(password, user.password))) {
+            if (!user.isActive) {
+                return res.json({ 
+                    requiresReactivation: true, 
+                    message: 'Your account is deactivated. Click to reactivate.' 
+                });
+            }
+            if (user.isTwoFactorEnabled) {
+                return res.json({
+                    requires2FA: true,
+                    userId: user._id,
+                    message: 'Two-Factor Authentication required'
+                });
+            }
+
             res.json({
                 _id: user.id,
                 name: user.name,
@@ -315,6 +338,241 @@ const changePasswordAuthenticated = async (req, res) => {
     }
 };
 
+// @desc    Generate 2FA secret and QR code
+// @route   GET /api/auth/2fa/generate
+// @access  Private
+const generate2FA = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const secret = speakeasy.generateSecret({
+            name: `OnTask (${user.email})`
+        });
+
+        user.twoFactorSecret = secret.base32;
+        await user.save();
+
+        qrcode.toDataURL(secret.otpauth_url, (err, data_url) => {
+            if (err) {
+                return res.status(500).json({ message: 'Error generating QR code' });
+            }
+            res.json({
+                secret: secret.base32,
+                qrcode: data_url
+            });
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Enable 2FA by verifying the first code
+// @route   POST /api/auth/2fa/enable
+// @access  Private
+const enable2FA = async (req, res) => {
+    try {
+        const { code } = req.body;
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const verified = speakeasy.totp.verify({
+            secret: user.twoFactorSecret,
+            encoding: 'base32',
+            token: code
+        });
+
+        if (verified) {
+            user.isTwoFactorEnabled = true;
+            await user.save();
+            res.json({ message: 'Two-Factor Authentication enabled successfully' });
+        } else {
+            res.status(400).json({ message: 'Invalid 2FA code' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Disable 2FA
+// @route   POST /api/auth/2fa/disable
+// @access  Private
+const disable2FA = async (req, res) => {
+    try {
+        const { code } = req.body;
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const verified = speakeasy.totp.verify({
+            secret: user.twoFactorSecret,
+            encoding: 'base32',
+            token: code
+        });
+
+        if (verified) {
+            user.isTwoFactorEnabled = false;
+            user.twoFactorSecret = '';
+            await user.save();
+            res.json({ message: 'Two-Factor Authentication disabled successfully' });
+        } else {
+            res.status(400).json({ message: 'Invalid 2FA code' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Verify 2FA code during login
+// @route   POST /api/auth/login/verify-2fa
+// @access  Public
+const verifyLogin2FA = async (req, res) => {
+    try {
+        const { userId, code } = req.body;
+
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        if (!user.isTwoFactorEnabled) {
+             return res.status(400).json({ message: '2FA is not enabled for this user' });
+        }
+
+        const verified = speakeasy.totp.verify({
+            secret: user.twoFactorSecret,
+            encoding: 'base32',
+            token: code,
+            window: 1
+        });
+
+        if (verified) {
+            res.json({
+                _id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                bio: user.bio,
+                skills: user.skills,
+                hourlyRate: user.hourlyRate,
+                experience: user.experience,
+                professionalTitle: user.professionalTitle,
+                bankDetails: user.bankDetails,
+                token: generateToken(user._id)
+            });
+        } else {
+            res.status(400).json({ message: 'Invalid 2FA code' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Add Portfolio Item
+// @route   POST /api/auth/portfolio
+// @access  Private
+const addPortfolioItem = async (req, res) => {
+    try {
+        const { title, description, projectUrl, skills } = req.body;
+        const user = await User.findById(req.user.id);
+
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const newItem = {
+            title,
+            description,
+            projectUrl,
+            skills: skills ? (typeof skills === 'string' ? skills.split(',').map(s => s.trim()) : skills) : [],
+            completedAt: Date.now()
+        };
+
+        // Handle File Upload
+        if (req.file) {
+            newItem.imageUrl = `/uploads/portfolio/${req.file.filename}`;
+        }
+
+        user.portfolio.push(newItem);
+
+        await user.save();
+        res.status(201).json(user.portfolio);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Remove Portfolio Item
+// @route   DELETE /api/auth/portfolio/:itemId
+// @access  Private
+const removePortfolioItem = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        user.portfolio = user.portfolio.filter(item => item._id.toString() !== req.params.itemId);
+
+        await user.save();
+        res.status(200).json(user.portfolio);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Deactivate User Account
+// @route   PUT /api/auth/deactivate
+// @access  Private
+const deactivateAccount = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+
+        if (user) {
+            user.isActive = false;
+            // Clear tokens
+            user.token = '';
+            user.fcmToken = '';
+            await user.save();
+
+            // If an employer deactivates, close all their open jobs
+            if (user.role === 'employer') {
+                await Job.updateMany(
+                    { employer: user._id, jobStatus: 'open' },
+                    { jobStatus: 'closed' }
+                );
+            }
+
+            res.json({ success: true, message: 'Account successfully deactivated' });
+        } else {
+            res.status(404).json({ message: 'User not found' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Reactivate User Account
+// @route   POST /api/auth/reactivate
+// @access  Public (Requires credentials)
+const reactivateAccount = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = await User.findOne({ email });
+
+        if (user && (await bcrypt.compare(password, user.password))) {
+            user.isActive = true;
+            await user.save();
+
+            res.json({
+                _id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                token: generateToken(user._id),
+                message: 'Account successfully reactivated'
+            });
+        } else {
+            res.status(401).json({ message: 'Invalid credentials' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     registerUser,
     loginUser,
@@ -324,5 +582,13 @@ module.exports = {
     changePasswordAuthenticated,
     forgotPassword,
     verifyOtp,
-    changePassword
+    changePassword,
+    generate2FA,
+    enable2FA,
+    disable2FA,
+    verifyLogin2FA,
+    addPortfolioItem,
+    removePortfolioItem,
+    deactivateAccount,
+    reactivateAccount
 };

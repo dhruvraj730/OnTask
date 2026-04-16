@@ -165,10 +165,9 @@ const TaskerDashboard = () => {
                                             <div className="p-4 rounded-xl border border-gray-100 hover:border-purple-200 hover:shadow-md transition-all bg-purple-50/30">
                                                 <h4 className="font-bold text-gray-900 group-hover:text-purple-700 transition-colors">{job.title}</h4>
                                                 <p className="text-sm text-gray-500 mt-1">{job.company} • {job.location}</p>
-                                                <div className="mt-3 flex items-center justify-between">
-                                                    <span className="text-xs font-bold px-2 py-1 bg-white rounded-md text-gray-600 border border-gray-100">{job.salary?.includes('$') ? job.salary.replaceAll('$', '₹') : (job.salary?.includes('₹') ? job.salary : (job.salary ? `₹${job.salary}` : 'N/A'))}</span>
-                                                    <ArrowRight className="w-4 h-4 text-purple-400 group-hover:translate-x-1 transition-transform" />
-                                                </div>
+                                                    <span className="text-xs font-bold px-2 py-1 bg-white rounded-md text-gray-600 border border-gray-100">
+                                                        {job.salary ? `₹${job.salary.toString().replaceAll('$', '')}` : 'N/A'}
+                                                    </span>
                                             </div>
                                         </Link>
                                     ))}
@@ -242,7 +241,7 @@ const TaskerDashboard = () => {
                                             </div>
                                             <p className="text-xl font-extrabold text-gray-900">
                                                 {job.budget ? `₹${Math.round(job.budget / (job.positionsRequired || 1))}` : 
-                                                 (job.salary?.includes('$') ? job.salary.replaceAll('$', '₹') : (job.salary?.includes('₹') ? job.salary : (job.salary ? `₹${job.salary}` : 'Commensurate')))}
+                                                 (job.salary ? `₹${job.salary.toString().replaceAll('$', '')}` : 'Commensurate')}
                                             </p>
                                             <div className="mb-4 space-y-3">
                                                 <div>

@@ -236,12 +236,18 @@ const MyApplicationsPage = () => {
                                             <div className="mt-4 p-5 bg-emerald-50 border border-emerald-100 rounded-2xl shadow-sm">
                                                 <div className="flex justify-between items-start mb-4">
                                                     <div>
-                                                        <p className="text-sm font-bold text-emerald-800">New Budget Offer Received!</p>
-                                                        <p className="text-xs text-emerald-600 mt-1">The organizer has proposed a revised budget for this project.</p>
+                                                        <p className="text-sm font-bold text-emerald-800">
+                                                            {app.status === 'offered' ? 'Direct Hire Offer Received!' : 'New Budget Offer Received!'}
+                                                        </p>
+                                                        <p className="text-xs text-emerald-600 mt-1">
+                                                            {app.status === 'offered' ? 'The employer wants to hire you directly for this contract.' : 'The organizer has proposed a revised budget for this project.'}
+                                                        </p>
                                                     </div>
                                                     <div className="text-right">
                                                         <p className="text-2xl font-black text-emerald-700">₹{app.offeredBudget}</p>
-                                                        <p className="text-[10px] font-bold text-emerald-500 uppercase">Revised Total</p>
+                                                        <p className="text-[10px] font-bold text-emerald-500 uppercase">
+                                                            {app.status === 'offered' ? 'Contract Budget' : 'Revised Total'}
+                                                        </p>
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-3">
@@ -249,7 +255,7 @@ const MyApplicationsPage = () => {
                                                         onClick={() => handleRespondToNegotiation(app.jobId, 'accept')}
                                                         className="flex-1 bg-emerald-600 text-white py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/10"
                                                     >
-                                                        Accept Offer
+                                                        {app.status === 'offered' ? 'Accept Offer & Start' : 'Accept Offer'}
                                                     </button>
                                                     <button
                                                         onClick={() => handleRespondToNegotiation(app.jobId, 'reject')}

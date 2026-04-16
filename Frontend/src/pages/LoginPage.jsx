@@ -10,8 +10,13 @@ const LoginPage = () => {
     const { email, password } = formData;
 
     const [showPassword, setShowPassword] = useState(false);
+    const [requires2FA, setRequires2FA] = useState(false);
+    const [requiresReactivation, setRequiresReactivation] = useState(false);
+    const [userIdFor2FA, setUserIdFor2FA] = useState(null);
+    const [twoFactorCode, setTwoFactorCode] = useState('');
+    const [reactivating, setReactivating] = useState(false);
 
-    const { login, user } = useContext(AuthContext);
+    const { login, reactivate, verify2FALogin, user } = useContext(AuthContext);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -33,12 +38,50 @@ const LoginPage = () => {
         e.preventDefault();
         try {
             const userData = await login(email, password);
+            if (userData && userData.requiresReactivation) {
+                setRequiresReactivation(true);
+                return;
+            }
+            if (userData && userData.requires2FA) {
+                setRequires2FA(true);
+                setUserIdFor2FA(userData.userId);
+                return;
+            }
             if (userData.role === 'employer') navigate('/pro/dashboard');
             else if (userData.role === 'job_seeker') navigate('/tasker/dashboard');
             else navigate('/');
         } catch (error) {
             console.error(error);
             const msg = error.response?.data?.message || 'Login Failed';
+            alert(msg);
+        }
+    };
+
+    const handleReactivate = async () => {
+        setReactivating(true);
+        try {
+            const userData = await reactivate(email, password);
+            alert("Success! Your account has been reactivated.");
+            if (userData.role === 'employer') navigate('/pro/dashboard');
+            else if (userData.role === 'job_seeker') navigate('/tasker/dashboard');
+            else navigate('/');
+        } catch (error) {
+            alert(error.response?.data?.message || "Reactivation failed.");
+        } finally {
+            setReactivating(false);
+        }
+    };
+
+    const on2FASubmit = async (e) => {
+        e.preventDefault();
+        try {
+            const userData = await verify2FALogin(userIdFor2FA, twoFactorCode);
+            if (userData.role === 'employer') navigate('/pro/dashboard');
+            else if (userData.role === 'job_seeker') navigate('/tasker/dashboard');
+            else navigate('/');
+        } catch (error) {
+            console.error(error);
+            const msg = error.response?.data?.message || 'Invalid 2FA Code';
             alert(msg);
         }
     };
@@ -59,6 +102,8 @@ const LoginPage = () => {
                 </div>
 
                 <div className="mt-4 flex flex-col gap-3">
+                    {!requires2FA && (
+                    <>
                     <button
                         onClick={() => window.location.href = "http://localhost:5000/api/auth/google"}
                         type="button"
@@ -80,8 +125,58 @@ const LoginPage = () => {
                             <span className="px-2 bg-white text-gray-500">Or continue with email</span>
                         </div>
                     </div>
+                    </>
+                    )}
                 </div>
 
+                {requiresReactivation && !requires2FA && (
+                    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl text-center">
+                        <p className="text-sm text-blue-800 mb-3">
+                            Your account is currently deactivated. Would you like to reactivate it?
+                        </p>
+                        <button
+                            onClick={handleReactivate}
+                            disabled={reactivating}
+                            className="w-full py-2 px-4 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        >
+                            {reactivating ? 'Reactivating...' : 'Yes, Reactivate My Account'}
+                        </button>
+                        <button 
+                            onClick={() => setRequiresReactivation(false)}
+                            className="mt-2 text-xs text-gray-500 hover:underline"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                )}
+
+                {requires2FA ? (
+                    <form className="mt-8 space-y-6" onSubmit={on2FASubmit}>
+                        <div className="rounded-md shadow-sm -space-y-px">
+                            <input
+                                name="twoFactorCode"
+                                type="text"
+                                required
+                                className="appearance-none rounded relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm text-center tracking-widest text-lg"
+                                placeholder="6-digit Authenticator Code"
+                                value={twoFactorCode}
+                                onChange={(e) => setTwoFactorCode(e.target.value)}
+                                maxLength={6}
+                            />
+                        </div>
+                        <div>
+                            <button
+                                type="submit"
+                                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                            >
+                                Verify Code & Sign In
+                            </button>
+                        </div>
+                        <div className="text-center mt-2">
+                             <button type="button" onClick={() => setRequires2FA(false)} className="text-sm text-blue-600 hover:text-blue-500">Back to Login</button>
+                        </div>
+                    </form>
+                ) : (
                 <form className="mt-8 space-y-6" onSubmit={onSubmit}>
                     <div className="rounded-md shadow-sm -space-y-px">
                         <div>
@@ -137,6 +232,7 @@ const LoginPage = () => {
                         </button>
                     </div>
                 </form>
+                )}
 
                 <div className="text-center">
                     <Link to="/forgot-password" className="text-sm text-blue-600 hover:text-blue-500">

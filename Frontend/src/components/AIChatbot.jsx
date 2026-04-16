@@ -1,15 +1,41 @@
-import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect, useContext } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import AuthContext from '../context/AuthContext';
 
 const AIChatbot = () => {
+    const { user } = useContext(AuthContext);
+    const [searchParams, setSearchParams] = useSearchParams();
     const [isOpen, setIsOpen] = useState(false);
-    const [messages, setMessages] = useState([
-        { id: 1, text: "Hi! I'm OnTask AI. I can help you find jobs, find talent, or post a new job instantly. Try typing 'I need a bartender' or 'Find driver jobs'.", sender: 'bot' }
-    ]);
+    const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const navigate = useNavigate();
     const messagesEndRef = useRef(null);
+
+    // Watch for query param changes to open the bot and clean the URL
+    useEffect(() => {
+        if (searchParams.get('chat') === 'open') {
+            setIsOpen(true);
+            const newParams = new URLSearchParams(searchParams);
+            newParams.delete('chat');
+            setSearchParams(newParams, { replace: true });
+        }
+    }, [searchParams, setSearchParams]);
+
+    // Dynamic initial message based on role
+    useEffect(() => {
+        let welcomeText = "Hi! I'm OnTask AI. I can help you find jobs, find talent, or post projects instantly. Try typing 'Find jobs' or 'I need a bartender'.";
+        
+        if (user) {
+            if (user.role === 'job_seeker') {
+                welcomeText = `Hi ${user.name}! I'm OnTask AI. Ready for your next shift? I can help you find the perfect job or track your applications. Try typing 'Find driver jobs' or 'Check my status'.`;
+            } else if (user.role === 'organizer' || user.role === 'employer') {
+                welcomeText = `Hi ${user.name}! I'm OnTask AI. Looking for top talent? I can help you post a new job or search for experts. Try typing 'I need a waiter' or 'Search for developers'.`;
+            }
+        }
+        
+        setMessages([{ id: 1, text: welcomeText, sender: 'bot' }]);
+    }, [user]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -39,9 +65,14 @@ const AIChatbot = () => {
 
     const processCommand = (text) => {
         // Simple Keyword Matching AI (Rule-Based)
+        const isSeeker = user?.role === 'job_seeker';
+        const isProvider = user?.role === 'organizer' || user?.role === 'employer';
 
-        // 1. Post a Job Intent
+        // 1. Post a Job Intent (Provider focus)
         if (text.includes('post') || text.includes('hire') || text.includes('need a')) {
+            if (isSeeker) {
+                return { text: "It looks like you're looking to hire! As a Job Seeker, you normally apply to jobs. Would you like to see available jobs instead?", action: () => navigate('/find-jobs') };
+            }
             return {
                 text: "I can help you post that job! Taking you to the job creation page now...",
                 action: () => navigate('/pro/job/create')
@@ -49,32 +80,43 @@ const AIChatbot = () => {
         }
 
         // 2. Search Jobs Intent
-        if (text.includes('find job') || text.includes('looking for work') || text.includes('shifts')) {
+        if (text.includes('find job') || text.includes('looking for work') || text.includes('shifts') || text.includes('work')) {
             return {
-                text: "Searching for available shifts for you...",
+                text: "Searching for current job openings for you...",
                 action: () => navigate('/find-jobs')
             };
         }
 
-        // 3. Search Talent Intent
-        if (text.includes('find talent') || text.includes('find worker') || text.includes('search staff')) {
+        // 3. Search Talent Intent (Provider focus)
+        if (text.includes('find talent') || text.includes('find worker') || text.includes('search staff') || text.includes('search talent')) {
+            if (isSeeker) {
+                return { text: "As a Job Seeker, you are our talent! Would you like to find jobs where you can use your skills?", action: () => navigate('/find-jobs') };
+            }
             return {
                 text: "Let me show you our top rated talent...",
                 action: () => navigate('/find-talent')
             };
         }
 
-        // 4. Specific Job Search
-        if (text.includes('driver') || text.includes('waiter') || text.includes('bartender')) {
+        // 4. Specific Job/Talent Search
+        if (text.includes('driver') || text.includes('waiter') || text.includes('bartender') || text.includes('developer')) {
+            const query = text.match(/driver|waiter|bartender|developer/g)[0];
+            if (isProvider) {
+                return {
+                    text: `Searching for ${query}s to join your team...`,
+                    action: () => navigate(`/find-talent?skill=${query}`)
+                };
+            }
             return {
-                text: `Looking for ${text} positions...`,
-                action: () => navigate(`/find-jobs?title=${text}`)
+                text: `Looking for ${query} positions...`,
+                action: () => navigate(`/find-jobs?title=${query}`)
             };
         }
 
         // Default
+        const suggestions = isSeeker ? "'Find jobs', 'My applications'" : isProvider ? "'Post a job', 'Search talent'" : "'Find work', 'Hire experts'";
         return {
-            text: "I didn't quite catch that. Try commands like 'Post a job', 'Find work', or 'I need a waiter'.",
+            text: `I didn't quite catch that. Try commands like ${suggestions}.`,
             action: null
         };
     };

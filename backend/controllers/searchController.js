@@ -6,7 +6,7 @@ const Job = require('../models/Job');
 // @access  Public
 const searchTaskers = async (req, res) => {
     try {
-        const { minRating, minEarnings, minExperience, skill } = req.query;
+        const { minRating, minEarnings, minExperience, skill, sortBy } = req.query;
 
         let query = { role: 'job_seeker' };
 
@@ -20,10 +20,19 @@ const searchTaskers = async (req, res) => {
             query.experience = { $gte: Number(minExperience) };
         }
         if (skill) {
+            // Using a case-insensitive regex search for skill tags
             query.skills = { $in: [new RegExp(skill, 'i')] };
         }
 
-        const taskers = await User.find(query).select('-password');
+        let sortOption = { createdAt: -1 }; // Default: Newest first
+        if (sortBy === 'rating') sortOption = { rating: -1 };
+        else if (sortBy === 'experience') sortOption = { experience: -1 };
+        else if (sortBy === 'newest') sortOption = { createdAt: -1 };
+
+        const taskers = await User.find(query)
+            .select('-password')
+            .sort(sortOption);
+            
         res.status(200).json(taskers);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -35,7 +44,7 @@ const searchTaskers = async (req, res) => {
 // @access  Public
 const searchJobs = async (req, res) => {
     try {
-        const { minSalary, location, title } = req.query;
+        const { minSalary, location, title, sortBy } = req.query;
 
         let query = {};
 
@@ -45,19 +54,25 @@ const searchJobs = async (req, res) => {
         if (title) {
             query.title = { $regex: title, $options: 'i' };
         }
-        // Basic salary parsing (assuming strictly numeric or simple format for now)
-        // In reality, salary might be a string like "$50k - $60k", so complex logic needed.
-        // For MVP, we'll keep regex or basic check if salary field was numeric. 
-        // Since salary is String in schema, we filter by regex search for now.
+        
+        // Handle numeric budget filter if minSalary is provided
+        if (minSalary) {
+            query.budget = { $gte: Number(minSalary) };
+        }
 
-        // Default to open jobs unless specified otherwise (or handled by frontend filters later)
+        // Default to open jobs
         if (!query.jobStatus) {
             query.jobStatus = 'open';
         }
 
+        let sortOption = { createdAt: -1 }; // Default
+        if (sortBy === 'salary') sortOption = { budget: -1 };
+        else if (sortBy === 'newest') sortOption = { createdAt: -1 };
+
         const jobs = await Job.find(query)
             .populate('employer', 'name company rating')
-            .sort({ createdAt: -1 }); // Newest first
+            .sort(sortOption);
+            
         res.status(200).json(jobs);
     } catch (error) {
         res.status(500).json({ message: error.message });

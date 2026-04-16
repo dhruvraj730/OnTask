@@ -46,8 +46,29 @@ export const AuthProvider = ({ children }) => {
         }
     }, [token]);
 
+    const reactivate = async (email, password) => {
+        const res = await axios.post('/api/auth/reactivate', { email, password });
+        localStorage.setItem('token', res.data.token);
+        localStorage.setItem('user', JSON.stringify(res.data));
+        setToken(res.data.token);
+        setUser(res.data);
+        return res.data;
+    };
+
     const login = async (email, password) => {
         const res = await axios.post('/api/auth/login', { email, password });
+        if (res.data.requires2FA || res.data.requiresReactivation) {
+            return res.data;
+        }
+        localStorage.setItem('token', res.data.token);
+        localStorage.setItem('user', JSON.stringify(res.data));
+        setToken(res.data.token);
+        setUser(res.data);
+        return res.data;
+    };
+
+    const verify2FALogin = async (userId, code) => {
+        const res = await axios.post('/api/auth/login/verify-2fa', { userId, code });
         localStorage.setItem('token', res.data.token);
         localStorage.setItem('user', JSON.stringify(res.data));
         setToken(res.data.token);
@@ -89,7 +110,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, token, login, register, logout, updateProfile, loading, oauthLogin, socket }}>
+        <AuthContext.Provider value={{ user, token, login, reactivate, verify2FALogin, register, logout, updateProfile, loading, oauthLogin, socket }}>
             {children}
         </AuthContext.Provider>
     );

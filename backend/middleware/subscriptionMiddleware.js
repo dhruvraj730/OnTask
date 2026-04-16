@@ -7,9 +7,12 @@ const checkSubscription = async (req, res, next) => {
 
         // For MVP, if plan is 'none', block. 
         // In real world, we might allow limited free actions.
-        if (user.subscription.plan === 'none' || user.subscription.status !== 'active') {
+        // Ensure subscription object exists
+        const sub = user.subscription || { plan: 'none', status: 'expired' };
+
+        if (sub.plan === 'none' || sub.status !== 'active') {
             return res.status(403).json({
-                message: 'Subscription Required',
+                message: 'Subscription Required. Please upgrade to a plan to initiate direct hires.',
                 requiresSubscription: true
             });
         }

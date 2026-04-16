@@ -1,11 +1,34 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useContext } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import AuthContext from '../context/AuthContext';
 import { Footer } from '../components/Footer';
 import { HeroSection } from '../components/HeroSection';
 import { TopTalent } from '../components/TopTalent';
 import { ChevronDown, ChevronUp, Briefcase, Building2, CheckCircle2, Users, Shield, Zap, Search, Code, Palette, Camera, Music, Video, ArrowRight } from 'lucide-react';
 
 const LandingPage = () => {
+    const { user, loading } = useContext(AuthContext);
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (!loading && user) {
+            if (user.role === 'employer') {
+                navigate('/pro/dashboard');
+            } else if (user.role === 'job_seeker') {
+                navigate('/tasker/dashboard');
+            }
+        }
+    }, [user, loading, navigate]);
+
+    // Only show white screen if we are actually redirecting and have a valid role
+    if (loading) return null;
+    
+    const isKnownRole = user?.role === 'employer' || user?.role === 'job_seeker';
+    
+    if (user && isKnownRole) {
+        return <div className="min-h-screen bg-white" />;
+    }
+
     return (
         <div className="min-h-screen bg-white">
             <main>

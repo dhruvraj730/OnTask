@@ -123,5 +123,96 @@ const verifyPayment = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+// @desc    Create a Razorpay tip order
+// @route   POST /api/payment/tip/order
+// @access  Private
+const createTipOrder = async (req, res) => {
+    try {
+        const { jobId, hireId, amount } = req.body;
 
-module.exports = { subscribeUser, createOrder, verifyPayment };
+        if (!jobId || !amount) {
+            return res.status(400).json({ message: 'Job ID and amount are required' });
+        }
+
+        const options = {
+            amount: Math.round(amount * 100), // amount in paise
+            currency: 'INR',
+            receipt: `tip_${jobId.toString().slice(-14)}_${Date.now().toString().slice(-10)}`,
+        };
+        console.log(`[PAYMENT] Creating tip order with options:`, JSON.stringify(options, null, 2));
+        const order = await razorpay.orders.create(options);
+        
+        if (!order) {
+            return res.status(500).json({ message: 'Failed to create tip order from Razorpay' });
+        }
+
+        res.json(order);
+    } catch (error) {
+        console.error(`[PAYMENT ERROR] Tip order creation failed:`, error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Verify Razorpay tip payment
+// @route   POST /api/payment/tip/verify
+// @access  Private
+const verifyTipPayment = async (req, res) => {
+    try {
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, jobId, hireId, amount } = req.body;
+
+        const body = razorpay_order_id + "|" + razorpay_payment_id;
+        const expectedSignature = crypto
+            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+            .update(body.toString())
+            .digest('hex');
+
+        const isSignatureValid = expectedSignature === razorpay_signature;
+
+        if (isSignatureValid) {
+            const job = await Job.findById(jobId);
+            if (!job) return res.status(404).json({ message: 'Job not found' });
+
+            const hire = job.hires.id(hireId);
+            if (!hire) return res.status(404).json({ message: 'Hire record not found' });
+
+            const tasker = await User.findById(hire.freelancer);
+            if (!tasker) return res.status(404).json({ message: 'Tasker not found' });
+
+            // Add tip to tasker
+            const numericAmount = Number(amount);
+            tasker.walletBalance += numericAmount;
+            tasker.totalEarnings += numericAmount;
+            
+            hire.tipAmount += numericAmount;
+
+            tasker.transactions.push({
+                type: 'payment',
+                amount: numericAmount,
+                description: `Tip Received for Job: ${job.title}`,
+                status: 'completed'
+            });
+
+            const employer = await User.findById(req.user.id);
+            if (employer) {
+                employer.transactions.push({
+                    type: 'payment',
+                    amount: numericAmount,
+                    description: `Tip Given for Job: ${job.title}`,
+                    status: 'completed'
+                });
+                await employer.save();
+            }
+
+            await job.save();
+            await tasker.save();
+
+            res.json({ message: 'Tip payment verified successfully', success: true });
+        } else {
+            res.status(400).json({ message: 'Invalid signature', success: false });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+module.exports = { subscribeUser, createOrder, verifyPayment, createTipOrder, verifyTipPayment };

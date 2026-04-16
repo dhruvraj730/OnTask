@@ -112,7 +112,7 @@ const jobSchema = mongoose.Schema({
         },
         status: {
             type: String,
-            enum: ['applied', 'interviewing', 'hired', 'rejected'],
+            enum: ['applied', 'interviewing', 'hired', 'rejected', 'offered'],
             default: 'applied'
         },
         offeredBudget: {
@@ -155,6 +155,10 @@ const jobSchema = mongoose.Schema({
             default: 0
         },
         escrowAmount: {
+            type: Number,
+            default: 0
+        },
+        tipAmount: {
             type: Number,
             default: 0
         },

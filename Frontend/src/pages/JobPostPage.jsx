@@ -1,17 +1,19 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { 
     Sparkles, Bot, PenTool, ArrowRight, ArrowLeft, 
     CheckCircle2, Info, Calendar, Clock, Users, 
-    DollarSign, MapPin, Building, Briefcase, Plus 
+    IndianRupee, MapPin, Building, Briefcase, Plus 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 
 const JobPostPage = () => {
     const navigate = useNavigate();
-    const [mode, setMode] = useState('manual'); // 'manual' or 'ai'
+    const [searchParams] = useSearchParams();
+    const initialMode = searchParams.get('mode') || 'manual';
+    const [mode, setMode] = useState(initialMode); // 'manual' or 'ai'
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [aiPrompt, setAiPrompt] = useState({ role: '', details: '' });
@@ -39,7 +41,7 @@ const JobPostPage = () => {
     const steps = [
         { id: 1, title: 'Basic Info', icon: Info },
         { id: 2, title: 'Logistics', icon: Calendar },
-        { id: 3, title: 'Budget', icon: DollarSign },
+        { id: 3, title: 'Budget', icon: IndianRupee },
         { id: 4, title: 'Details', icon: Briefcase },
     ];
 
@@ -464,12 +466,12 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                                             <div className="space-y-2">
                                                                 <label className="text-xs font-black text-slate-700 uppercase pl-1">Starting Date</label>
-                                                                <input type="date" name="startDate" required value={startDate} onChange={onChange} className="block w-full px-5 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-blue-50/50 focus:border-blue-500 bg-slate-50 transition-all font-medium" />
+                                                                <input type="date" name="startDate" required value={startDate} min={new Date().toISOString().split('T')[0]} onChange={onChange} className="block w-full px-5 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-blue-50/50 focus:border-blue-500 bg-slate-50 transition-all font-medium" />
                                                             </div>
                                                             <div className="space-y-2">
                                                                 <label className="text-xs font-black text-slate-700 uppercase pl-1">Work Duration</label>
                                                                 <div className="flex gap-4">
-                                                                    <input type="number" name="durationValue" required value={durationValue} onChange={onChange} className="block w-3/5 px-5 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-blue-50/50 focus:border-blue-500 bg-slate-50 transition-all font-medium" placeholder="4" min="1" />
+                                                                    <input type="number" name="durationValue" required value={durationValue} min="1" onChange={onChange} className="block w-3/5 px-5 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-blue-50/50 focus:border-blue-500 bg-slate-50 transition-all font-medium" placeholder="4" />
                                                                     <select name="durationUnit" value={durationUnit} onChange={onChange} className="block w-2/5 px-4 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-blue-50/50 focus:border-blue-500 bg-slate-50 transition-all font-bold">
                                                                         <option value="hours">Hours</option>
                                                                         <option value="days">Days</option>
@@ -499,14 +501,14 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
                                                                     <div className="space-y-2 text-left">
                                                                         <label className="text-xs font-black text-slate-700 uppercase pl-1 text-emerald-600">Minimum Budget (₹)</label>
                                                                         <div className="relative">
-                                                                            <DollarSign className="absolute left-5 top-5 text-emerald-400 w-5 h-5" />
+                                                                            <IndianRupee className="absolute left-5 top-5 text-emerald-400 w-5 h-5" />
                                                                             <input type="number" name="minBudget" value={formData.minBudget || ''} onChange={onChange} className="block w-full pl-14 pr-5 py-4 rounded-2xl border-emerald-100 focus:ring-4 focus:ring-emerald-50/50 focus:border-emerald-500 bg-emerald-50/30 transition-all font-bold text-emerald-700" placeholder="Min" />
                                                                         </div>
                                                                     </div>
                                                                     <div className="space-y-2 text-left">
                                                                         <label className="text-xs font-black text-slate-700 uppercase pl-1 text-emerald-600">Maximum Budget (₹)</label>
                                                                         <div className="relative">
-                                                                            <DollarSign className="absolute left-5 top-5 text-emerald-400 w-5 h-5" />
+                                                                            <IndianRupee className="absolute left-5 top-5 text-emerald-400 w-5 h-5" />
                                                                             <input type="number" name="maxBudget" value={formData.maxBudget || ''} onChange={onChange} className="block w-full pl-14 pr-5 py-4 rounded-2xl border-emerald-100 focus:ring-4 focus:ring-emerald-50/50 focus:border-emerald-500 bg-emerald-50/30 transition-all font-bold text-emerald-700" placeholder="Max" />
                                                                         </div>
                                                                     </div>
@@ -520,7 +522,7 @@ ${aiPrompt.details.includes('urgent') ? '- Immediate Start Available!' : ''}`;
                                                                     <div className="space-y-2 text-left">
                                                                         <label className="text-xs font-black text-slate-700 uppercase pl-1">Total Budget (Numeric ₹)</label>
                                                                         <div className="relative">
-                                                                            <DollarSign className="absolute left-5 top-5 text-slate-400 w-5 h-5" />
+                                                                            <IndianRupee className="absolute left-5 top-5 text-slate-400 w-5 h-5" />
                                                                             <input type="number" name="budget" value={formData.budget || ''} onChange={onChange} className="block w-full pl-14 pr-5 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-blue-50/50 focus:border-blue-500 bg-slate-50 transition-all font-medium" placeholder="e.g. 10000" />
                                                                         </div>
                                                                     </div>
