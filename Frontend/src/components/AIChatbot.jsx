@@ -122,14 +122,14 @@ const AIChatbot = () => {
     };
 
     return (
-        <div className="fixed bottom-6 right-6 z-50">
+        <div className="fixed bottom-6 right-6 z-50 max-w-[calc(100vw-3rem)]">
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
                         initial={{ opacity: 0, y: 20, scale: 0.9 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 20, scale: 0.9 }}
-                        className="bg-white rounded-2xl shadow-2xl w-80 sm:w-96 mb-4 overflow-hidden border border-gray-100 flex flex-col h-[500px]"
+                        className="bg-white rounded-2xl shadow-2xl w-80 sm:w-96 mb-4 overflow-hidden border border-gray-100 flex flex-col h-[500px] max-w-full"
                     >
                         {/* Header */}
                         <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 text-white flex justify-between items-center">
@@ -141,10 +141,10 @@ const AIChatbot = () => {
                         </div>
 
                         {/* Messages */}
-                        <div className="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-4">
+                        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 bg-gray-50 space-y-4">
                             {messages.map((msg) => (
-                                <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${msg.sender === 'user'
+                                <div key={msg.id} className={`flex min-w-0 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-[75%] min-w-0 p-3 rounded-2xl text-sm break-words whitespace-pre-wrap ${msg.sender === 'user'
                                             ? 'bg-blue-600 text-white rounded-tr-none'
                                             : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none shadow-sm'
                                         }`}>
@@ -176,15 +176,17 @@ const AIChatbot = () => {
                 )}
             </AnimatePresence>
 
-            {/* Toggle Button */}
-            <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setIsOpen(!isOpen)}
-                className="h-14 w-14 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-3xl shadow-lg shadow-blue-500/30 text-white"
-            >
-                {isOpen ? '✕' : '✨'}
-            </motion.button>
+            {/* Toggle Button - Only show when closed */}
+            {!isOpen && (
+                <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => setIsOpen(true)}
+                    className="h-14 w-14 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-3xl shadow-lg shadow-blue-500/30 text-white"
+                >
+                    ✨
+                </motion.button>
+            )}
         </div>
     );
 };

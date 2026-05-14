@@ -5,6 +5,7 @@ import axios from 'axios';
 import PortfolioModal from '../components/PortfolioModal';
 import { Briefcase, Plus, Trash2, ExternalLink } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { formatDate } from '../lib/dateUtils';
 
 const ProfilePage = () => {
     const { user, updateProfile, token } = useContext(AuthContext);
@@ -420,7 +421,7 @@ const ProfilePage = () => {
                                         <div className="flex justify-between items-start mb-2">
                                             <div>
                                                 <p className="font-bold text-gray-900">{review.reviewerName || 'Client'}</p>
-                                                <p className="text-xs text-gray-400 uppercase font-bold">{new Date(review.date).toLocaleDateString()}</p>
+                                                <p className="text-xs text-gray-400 uppercase font-bold">{formatDate(review.date)}</p>
                                             </div>
                                             <div className="flex items-center gap-1 text-yellow-500 font-bold bg-white px-3 py-1 rounded-full shadow-sm text-sm">
                                                 <span className="text-lg">★</span> {review.rating}

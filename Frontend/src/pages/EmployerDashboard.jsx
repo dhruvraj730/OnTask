@@ -4,6 +4,7 @@ import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { Sparkles, MessageSquare, Clock, ArrowRight, User, Star, Briefcase } from 'lucide-react';
 import AIChatbot from '../components/AIChatbot';
+import { formatDate } from '../lib/dateUtils';
 
 const EmployerDashboard = () => {
     const { user } = useContext(AuthContext);
@@ -36,7 +37,8 @@ const EmployerDashboard = () => {
 
         const fetchTalent = async () => {
             try {
-                const res = await axios.get('/api/search/taskers');
+                // Fetch top-rated talent
+                const res = await axios.get('/api/search/taskers?sortBy=rating');
                 setTalent(res.data.slice(0, 4)); // Show top 4
             } catch (err) {
                 console.error("Error fetching talent:", err);
@@ -51,11 +53,29 @@ const EmployerDashboard = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 font-sans pb-20">
+            {/* Welcome Message */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4">
+                <h2 className="text-3xl font-bold text-gray-900">
+                    Welcome back, <span className="text-blue-600">{user?.name?.split(' ')[0] || 'there'}</span> 👋
+                </h2>
+                <p className="text-gray-500 mt-1">Manage your projects and find top talent</p>
+            </div>
+
             {/* Hero Section */}
-            <div className="bg-white px-4 sm:px-6 lg:px-8 pt-8 pb-12">
+            <div className="bg-transparent px-4 sm:px-6 lg:px-8 pb-12">
                 <div className="max-w-7xl mx-auto rounded-3xl overflow-hidden relative shadow-2xl bg-blue-600 text-white">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center p-12">
                         <div className="space-y-6 z-10">
+                            {/* Welcome greeting */}
+                            <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5">
+                                <span className="text-2xl">
+                                    {new Date().getHours() < 12 ? '🌅' : new Date().getHours() < 18 ? '☀️' : '🌙'}
+                                </span>
+                                <span className="text-sm font-semibold text-white/90">
+                                    {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'},{' '}
+                                    <span className="text-white font-bold">{user?.name?.split(' ')[0] || 'there'}</span>!
+                                </span>
+                            </div>
                             <h1 className="text-4xl md:text-5xl font-bold leading-tight">
                                 Build Your Dream Team
                             </h1>
@@ -92,11 +112,7 @@ const EmployerDashboard = () => {
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
 
-                {/* Welcome Message */}
-                <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mt-8">Welcome Back</h2>
-                    <p className="text-gray-500">Manage your projects and find top talent</p>
-                </div>
+
 
                 {/* Available Freelancers */}
                 <div>
@@ -109,14 +125,14 @@ const EmployerDashboard = () => {
                             <p>Loading talent...</p>
                         ) : talent.length > 0 ? (
                             talent.map((freelancer) => (
-                                <div key={freelancer._id} className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                                    <div className="space-y-4">
+                                <div key={freelancer._id} className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full">
+                                    <div className="flex flex-col flex-grow space-y-4">
                                         <div>
-                                            <h4 className="font-bold text-lg text-gray-900">{freelancer.name}</h4>
-                                            <p className="text-sm text-gray-500">{freelancer.professionalTitle || "Freelancer"}</p>
+                                            <h4 className="font-bold text-lg text-gray-900 line-clamp-1" title={freelancer.name}>{freelancer.name}</h4>
+                                            <p className="text-sm text-gray-500 line-clamp-1" title={freelancer.professionalTitle || "Freelancer"}>{freelancer.professionalTitle || "Freelancer"}</p>
                                         </div>
 
-                                        <div className="flex items-center gap-4 text-sm">
+                                        <div className="flex items-center gap-4 text-sm mt-auto">
                                             <div className="flex items-center text-yellow-500 font-bold">
                                                 <Star className="w-4 h-4 fill-current mr-1" />
                                                 {freelancer.rating || 0}
@@ -126,7 +142,7 @@ const EmployerDashboard = () => {
 
                                         <div className="flex items-center text-gray-700 font-medium">
                                             <Clock className="w-4 h-4 mr-2" />
-                                            ₹{freelancer.hourlyRate}/hr
+                                            ₹{freelancer.hourlyRate || 0}/hr
                                         </div>
 
                                         <div>
@@ -134,13 +150,13 @@ const EmployerDashboard = () => {
                                                 Available
                                             </span>
                                         </div>
-
-                                        <Link to={`/profile/${freelancer._id}`} className="block">
-                                            <button className="w-full py-2 bg-blue-900 text-white rounded-lg font-bold text-sm hover:bg-blue-800 transition-colors">
-                                                View Profile
-                                            </button>
-                                        </Link>
                                     </div>
+
+                                    <Link to={`/profile/${freelancer._id}`} className="block mt-6">
+                                        <button className="w-full py-2 bg-blue-900 text-white rounded-lg font-bold text-sm hover:bg-blue-800 transition-colors">
+                                            View Profile
+                                        </button>
+                                    </Link>
                                 </div>
                             ))
                         ) : (
@@ -229,11 +245,11 @@ const EmployerDashboard = () => {
 
                                         <div className="flex justify-between items-center">
                                             <span className="px-3 py-1 bg-red-50 text-red-600 text-[10px] font-bold rounded-md">
-                                                {job.startDate ? `Starts ${new Date(job.startDate).toLocaleDateString()}` : "Immediate"}
+                                                {job.startDate ? `Starts ${formatDate(job.startDate)}` : "Immediate"}
                                             </span>
                                             {job.endDate && (
                                                 <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
-                                                    Due {new Date(job.endDate).toLocaleDateString()}
+                                                    Due {formatDate(job.endDate)}
                                                 </span>
                                             )}
                                         </div>

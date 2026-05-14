@@ -7,6 +7,7 @@ import AuthContext from '../context/AuthContext';
 import PaymentModal from '../components/PaymentModal';
 import FeedbackModal from '../components/FeedbackModal';
 import TipModal from '../components/TipModal';
+import { formatDate, formatDateTime } from '../lib/dateUtils';
 
 const ProjectDetailPage = () => {
     const { id } = useParams();
@@ -307,18 +308,18 @@ const ProjectDetailPage = () => {
                                     </div>
                                     <div>
                                         <p className="text-xs font-bold text-gray-400 uppercase mb-1">Posted</p>
-                                        <p className="font-bold text-blue-600">{new Date(project.createdAt).toLocaleDateString()}</p>
+                                        <p className="font-bold text-blue-600">{formatDate(project.createdAt)}</p>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-3 gap-4 pt-4">
                                     <div>
                                         <p className="text-xs font-bold text-gray-400 uppercase mb-1">Starting Date</p>
-                                        <p className="font-bold text-gray-900">{project.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A'}</p>
+                                        <p className="font-bold text-gray-900">{project.startDate ? formatDate(project.startDate) : 'N/A'}</p>
                                     </div>
                                     <div>
                                         <p className="text-xs font-bold text-gray-400 uppercase mb-1">Due Date</p>
-                                        <p className="font-bold text-red-600">{project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}</p>
+                                        <p className="font-bold text-red-600">{project.endDate ? formatDate(project.endDate) : 'N/A'}</p>
                                     </div>
                                     <div>
                                         <p className="text-xs font-bold text-gray-400 uppercase mb-1">Work Duration</p>
@@ -860,7 +861,7 @@ const TimelineUpdates = ({ updates, hiredAt, isEmployer, handleOpenReview }) => 
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <span className="text-xs font-bold text-gray-400 block mb-1">{new Date(update.date).toLocaleString()}</span>
+                                    <span className="text-xs font-bold text-gray-400 block mb-1">{formatDateTime(update.date)}</span>
                                     <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${update.status === 'approved' ? 'bg-green-100 text-green-700' :
                                         update.status === 'rejected' ? 'bg-red-100 text-red-700' :
                                             'bg-yellow-100 text-yellow-700'

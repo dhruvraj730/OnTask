@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { formatDate, formatDateTime } from '../lib/dateUtils';
 
 const MyApplicationsPage = () => {
     const { user, token } = useContext(AuthContext);
@@ -206,7 +207,7 @@ const MyApplicationsPage = () => {
                                             </span>
                                         </div>
                                         <p className="text-gray-600 mb-1">{app.company}</p>
-                                        <p className="text-gray-500 text-sm mb-4">Applied on: {new Date(app.appliedAt).toLocaleDateString()}</p>
+                                        <p className="text-gray-500 text-sm mb-4">Applied on: {formatDate(app.appliedAt)}</p>
 
                                         {app.proposal && (
                                             <div className="bg-gray-50 p-3 rounded-md mb-3 text-sm text-gray-700">
@@ -219,7 +220,7 @@ const MyApplicationsPage = () => {
                                             <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-xl flex justify-between items-center transition-all hover:shadow-md animate-pulse">
                                                 <div>
                                                     <p className="text-sm font-bold text-blue-800">Interview Scheduled!</p>
-                                                    <p className="text-xs text-blue-600">Date: {new Date(app.interviewDate).toLocaleString()}</p>
+                                                    <p className="text-xs text-blue-600">Date: {formatDateTime(app.interviewDate)}</p>
                                                 </div>
                                                 <a
                                                     href={app.interviewLink}
@@ -301,7 +302,7 @@ const MyApplicationsPage = () => {
                                                 </div>
                                                 {job.endDate && (
                                                     <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
-                                                        Due {new Date(job.endDate).toLocaleDateString()}
+                                                        Due {formatDate(job.endDate)}
                                                     </span>
                                                 )}
                                             </div>
@@ -399,7 +400,7 @@ const MyApplicationsPage = () => {
                                                                                 />
                                                                             </div>
                                                                         )}
-                                                                        <p className="text-xs text-gray-500 mt-1">{new Date(update.date).toLocaleDateString()} at {new Date(update.date).toLocaleTimeString()}</p>
+                                                                        <p className="text-xs text-gray-500 mt-1">{formatDateTime(update.date)}</p>
                                                                     </div>
                                                                 </div>
                                                             ))}
@@ -434,7 +435,7 @@ const MyApplicationsPage = () => {
                                                 </span>
                                             </div>
                                             <div className="mt-4 text-sm text-gray-500 mb-6">
-                                                Completed on: {job.updatedAt ? new Date(job.updatedAt).toLocaleDateString() : 'Unknown date'}
+                                                Completed on: {job.updatedAt ? formatDate(job.updatedAt) : 'Unknown date'}
                                             </div>
 
                                             {/* Client Feedback Section */}
@@ -496,7 +497,7 @@ const MyApplicationsPage = () => {
                                                                                     />
                                                                                 </div>
                                                                             )}
-                                                                            <p className="text-xs text-gray-500 mt-2">{new Date(update.date).toLocaleDateString()} at {new Date(update.date).toLocaleTimeString()}</p>
+                                                                            <p className="text-xs text-gray-500 mt-2">{formatDateTime(update.date)}</p>
                                                                         </div>
                                                                     </div>
                                                                 ))}

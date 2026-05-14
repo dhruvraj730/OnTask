@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowLeft, User, Users, Calendar, Link as LinkIcon, CheckCircle, Clock, Filter, Sparkles, MessageSquare } from 'lucide-react';
 import GlassContainer from '../components/premium/GlassContainer';
+import { formatDate } from '../lib/dateUtils';
 
 const JobApplicationsPage = () => {
     const { id } = useParams();
@@ -157,7 +158,7 @@ const JobApplicationsPage = () => {
                         </div>
                         <div>
                             <p className="text-xs font-bold text-gray-400 uppercase mb-1">Created</p>
-                            <p className="font-extrabold text-gray-900 text-lg">{new Date(job.createdAt).toLocaleDateString()}</p>
+                            <p className="font-extrabold text-gray-900 text-lg">{formatDate(job.createdAt)}</p>
                         </div>
                     </div>
                 </GlassContainer>
@@ -185,7 +186,7 @@ const JobApplicationsPage = () => {
                                         <div className="flex items-start justify-between mb-4">
                                             <div>
                                                 <h3 className="text-2xl font-bold text-gray-900 mb-1">{app.applicant.name}</h3>
-                                                <p className="text-sm text-gray-500 font-medium">Applied {new Date(app.appliedAt).toLocaleDateString()}</p>
+                                                <p className="text-sm text-gray-500 font-medium">Applied {formatDate(app.appliedAt)}</p>
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-2xl font-bold text-green-600">

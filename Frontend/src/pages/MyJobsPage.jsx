@@ -4,6 +4,7 @@ import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { Briefcase, Clock, Send } from 'lucide-react';
 import PaymentModal from '../components/PaymentModal';
+import { formatDate, formatDateTime } from '../lib/dateUtils';
 
 const MyJobsPage = () => {
     const { user } = useContext(AuthContext);
@@ -108,7 +109,7 @@ const MyJobsPage = () => {
                                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
                                         <div>
                                             <h2 className="text-xl font-bold text-gray-900 mb-1">{job.title}</h2>
-                                            <p className="text-sm text-gray-500">Posted {new Date(job.createdAt).toLocaleDateString()}</p>
+                                            <p className="text-sm text-gray-500">Posted {formatDate(job.createdAt)}</p>
                                         </div>
                                         <div className="flex items-center gap-3 mt-2 md:mt-0">
                                             {allUpdates.some(u => u.status === 'pending') && (
@@ -272,7 +273,7 @@ const MyJobsPage = () => {
                                                                                     />
                                                                                 </div>
                                                                             )}
-                                                                            <p className="text-xs text-gray-400 mt-1">{new Date(update.date).toLocaleDateString()} at {new Date(update.date).toLocaleTimeString()}</p>
+                                                                            <p className="text-xs text-gray-400 mt-1">{formatDateTime(update.date)}</p>
                                                                         </div>
                                                                     </div>
                                                                 ))}

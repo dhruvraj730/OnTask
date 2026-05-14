@@ -5,6 +5,7 @@ import AuthContext from '../context/AuthContext';
 import { Search, Briefcase, IndianRupee, User, Sparkles, ArrowRight, Zap, MapPin, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import AIChatbot from '../components/AIChatbot';
+import { formatDate } from '../lib/dateUtils';
 
 const TaskerDashboard = () => {
     const { user } = useContext(AuthContext);
@@ -27,7 +28,26 @@ const TaskerDashboard = () => {
                 // Fetch random jobs for the "Matching Jobs" section
                 // In a real app, this would be personalized based on user skills
                 const res = await axios.get('/api/search/jobs');
-                setJobs(res.data.slice(0, 3)); // Show top 3 matching jobs
+                
+                // Sort jobs based on tasker's skills match
+                const userSkills = user?.skills?.map(s => s.toLowerCase()) || [];
+                const sortedJobs = res.data.sort((a, b) => {
+                    const getMatchScore = (job) => {
+                        let score = 0;
+                        const textToSearch = `${job.title} ${job.description} ${job.specificRole || ''}`.toLowerCase();
+                        userSkills.forEach(skill => {
+                            if (textToSearch.includes(skill)) score += 1;
+                        });
+                        return score;
+                    };
+                    
+                    // First sort by score, then by newest
+                    const scoreDiff = getMatchScore(b) - getMatchScore(a);
+                    if (scoreDiff !== 0) return scoreDiff;
+                    return new Date(b.createdAt) - new Date(a.createdAt);
+                });
+                
+                setJobs(sortedJobs.slice(0, 3)); // Show top 3 matching jobs
             } catch (error) {
                 console.error("Error fetching jobs:", error);
             } finally {
@@ -76,8 +96,16 @@ const TaskerDashboard = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 font-sans pb-20">
+            {/* Welcome Message */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4">
+                <h2 className="text-3xl font-bold text-gray-900">
+                    Welcome back, <span className="text-emerald-600">{user?.name?.split(' ')[0] || 'there'}</span> 👋
+                </h2>
+                <p className="text-gray-500 mt-1">Find your next gig and grow your career</p>
+            </div>
+
             {/* Hero Section */}
-            <div className="bg-white px-4 pt-8 pb-12 sm:px-6 lg:px-8">
+            <div className="bg-transparent px-4 pb-12 sm:px-6 lg:px-8">
                 <div className="max-w-7xl mx-auto rounded-3xl overflow-hidden relative shadow-2xl">
                     <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-600"></div>
 
@@ -87,6 +115,16 @@ const TaskerDashboard = () => {
 
                     <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-12 p-8 sm:p-16 items-center">
                         <div className="text-white space-y-6">
+                            {/* Welcome greeting */}
+                            <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5">
+                                <span className="text-2xl">
+                                    {new Date().getHours() < 12 ? '🌅' : new Date().getHours() < 18 ? '☀️' : '🌙'}
+                                </span>
+                                <span className="text-sm font-semibold text-white/90">
+                                    {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'},{' '}
+                                    <span className="text-white font-bold">{user?.name?.split(' ')[0] || 'there'}</span>!
+                                </span>
+                            </div>
                             <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight leading-tight">
                                 Your Talent. <br />
                                 Your Future.
@@ -205,7 +243,7 @@ const TaskerDashboard = () => {
                                             <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{job.title}</h3>
                                             <div className="flex flex-wrap gap-2 mt-2">
                                                 <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-md flex items-center gap-1">
-                                                    <Clock className="w-3 h-3" /> {job.startDate ? new Date(job.startDate).toLocaleDateString() : 'Immediate'}
+                                                    <Clock className="w-3 h-3" /> {job.startDate ? formatDate(job.startDate) : 'Immediate'}
                                                 </span>
                                                 <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-md flex items-center gap-1">
                                                     <Briefcase className="w-3 h-3" /> {job.duration ? `${job.duration.value} ${job.duration.unit}` : 'Flexible'}
@@ -227,7 +265,7 @@ const TaskerDashboard = () => {
                                             <div className="flex items-center gap-2 justify-start sm:justify-end mb-1">
                                                 {job.endDate && (
                                                     <span className="px-2 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-full">
-                                                        Due {new Date(job.endDate).toLocaleDateString()}
+                                                        Due {formatDate(job.endDate)}
                                                     </span>
                                                 )}
                                                 {(job.positionsRequired || 1) - (job.hires?.length || 0) > 0 && (
@@ -239,36 +277,10 @@ const TaskerDashboard = () => {
                                                     <Zap className="w-3 h-3" /> Urgent
                                                 </span>
                                             </div>
-                                            <p className="text-xl font-extrabold text-gray-900">
+                                            <p className="text-xl font-extrabold text-gray-900 mb-2">
                                                 {job.budget ? `₹${Math.round(job.budget / (job.positionsRequired || 1))}` : 
                                                  (job.salary ? `₹${job.salary.toString().replaceAll('$', '')}` : 'Commensurate')}
                                             </p>
-                                            <div className="mb-4 space-y-3">
-                                                <div>
-                                                    <div className="flex justify-between text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-tight">
-                                                        <span>Verified Progress</span>
-                                                        <span className="text-emerald-600">{job.progress || 0}%</span>
-                                                    </div>
-                                                    <div className="w-full bg-gray-100 rounded-full h-2 shadow-inner overflow-hidden">
-                                                        <div
-                                                            className="bg-gradient-to-r from-emerald-500 to-teal-600 h-2 rounded-full"
-                                                            style={{ width: `${job.progress || 0}%` }}
-                                                        ></div>
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <div className="flex justify-between text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-widest font-mono">
-                                                        <span>Schedule</span>
-                                                        <span className="text-blue-500">{job.timeBasedProgress || 0}%</span>
-                                                    </div>
-                                                    <div className="w-full bg-gray-100 rounded-full h-1 shadow-inner overflow-hidden">
-                                                        <div
-                                                            className="bg-blue-400 h-1 rounded-full"
-                                                            style={{ width: `${job.timeBasedProgress || 0}%` }}
-                                                        ></div>
-                                                    </div>
-                                                </div>
-                                            </div>
                                         </div>
                                     </div>
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { formatDate } from '../lib/dateUtils';
 
 const EarningsPage = () => {
     const { user, token } = useContext(AuthContext);
@@ -153,7 +154,7 @@ const EarningsPage = () => {
                             <div key={idx} className="p-6 flex justify-between items-center hover:bg-gray-50 transition-colors">
                                 <div>
                                     <p className="font-bold text-gray-800">{tx.description}</p>
-                                    <p className="text-sm text-gray-500">{new Date(tx.date).toLocaleDateString()}</p>
+                                    <p className="text-sm text-gray-500">{formatDate(tx.date)}</p>
                                 </div>
                                 <div className="text-right">
                                     <p className={`font-bold ${tx.type === 'withdrawal' ? 'text-gray-800' : 'text-green-600'}`}>

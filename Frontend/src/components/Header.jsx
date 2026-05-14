@@ -4,6 +4,7 @@ import AuthContext from '../context/AuthContext';
 import { Button } from './ui/button';
 import { Search, Bell, MessageSquare, ChevronDown, User, CheckCircle } from 'lucide-react';
 import axios from 'axios';
+import { formatDateTime } from '../lib/dateUtils';
 
 export function Header() {
     const { user, logout, socket } = useContext(AuthContext);
@@ -196,7 +197,7 @@ export function Header() {
                                                                 </a>
                                                             )}
                                                             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-2">
-                                                                {new Date(notif.createdAt).toLocaleString()}
+                                                                {formatDateTime(notif.createdAt)}
                                                             </p>
                                                         </div>
                                                         {!notif.read && (
@@ -218,8 +219,8 @@ export function Header() {
                                     </button>
 
                                     {/* Tools Dropdown */}
-                                    <div className="absolute left-0 top-full pt-2 w-52 opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0 z-[60]">
-                                        <div className="bg-white shadow-xl rounded-xl border border-gray-100 py-3 overflow-hidden">
+                                    <div className="absolute right-0 md:right-auto md:left-1/2 md:-translate-x-1/2 top-full pt-2 w-56 opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 z-[60]">
+                                        <div className="bg-white shadow-xl rounded-xl border border-gray-100 py-3 overflow-hidden transform translate-y-2 group-hover:translate-y-0 transition-transform">
                                             <div className="px-4 pb-2 border-b border-gray-50 mb-2">
                                                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">AI Powered Tools</p>
                                             </div>
@@ -255,8 +256,8 @@ export function Header() {
                                     </Link>
 
                                     {/* Simple Dropdown Hover */}
-                                    <div className="absolute right-0 top-full pt-2 w-48 opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">
-                                        <div className="bg-white shadow-xl rounded-xl border border-gray-100 py-2 overflow-hidden">
+                                    <div className="absolute right-0 top-full pt-2 w-48 opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 z-[60]">
+                                        <div className="bg-white shadow-xl rounded-xl border border-gray-100 py-2 overflow-hidden transform translate-y-2 group-hover:translate-y-0 transition-transform">
                                             <div className="px-4 py-2 border-b border-gray-50 mb-1">
                                                 <p className="font-bold text-gray-900 truncate">{user?.name || 'User'}</p>
                                                 <p className="text-xs text-gray-500 capitalize">{user?.role?.replace('_', ' ') || 'Guest'}</p>

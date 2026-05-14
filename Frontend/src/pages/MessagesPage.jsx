@@ -4,6 +4,9 @@ import AuthContext from '../context/AuthContext';
 import GlassContainer from '../components/premium/GlassContainer';
 import { useLocation } from 'react-router-dom';
 
+// ── Helpers ─────────────────────────────────────────────────────────────
+import { getDateLabel, formatDate } from '../lib/dateUtils';
+
 const MessagesPage = () => {
     const { user, socket } = useContext(AuthContext);
     const [conversations, setConversations] = useState([]);
@@ -145,8 +148,8 @@ const MessagesPage = () => {
     if (!user) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading chat...</div>;
 
     return (
-        <div className="min-h-screen bg-gray-50 pt-6 pb-12 px-4 sm:px-6 lg:px-8 h-screen flex flex-col">
-            <GlassContainer className="flex-1 flex overflow-hidden max-w-7xl mx-auto w-full">
+        <div className="min-h-screen bg-gray-50 pt-6 pb-12 px-4 sm:px-6 lg:px-8 h-screen flex flex-col" style={{ overflowX: 'hidden', maxWidth: '100vw' }}>
+            <GlassContainer className="flex-1 flex overflow-hidden max-w-7xl mx-auto w-full" style={{ maxWidth: '100%', minWidth: 0 }}>
                 {/* Sidebar */}
                 <div className="w-1/3 border-r border-gray-200 bg-white/50 flex flex-col">
                     <div className="p-4 border-b border-gray-200 font-bold text-lg text-gray-700">Messages</div>
@@ -201,17 +204,79 @@ const MessagesPage = () => {
                             </div>
 
                             {/* Messages */}
-                            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                                {messages.map((msg, idx) => (
-                                    <div key={idx} className={`flex ${msg.sender._id === user._id || msg.sender === user._id ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-[70%] p-3 rounded-2xl text-sm shadow-sm whitespace-pre-wrap ${msg.sender._id === user._id || msg.sender === user._id
-                                            ? 'bg-blue-600 text-white rounded-tr-none'
-                                            : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
-                                            }`}>
-                                            {msg.content}
+                            <div className="flex-1 overflow-y-auto p-4" style={{ background: 'linear-gradient(135deg, #f0f4ff 0%, #fafafa 100%)' }}>
+                                {messages.map((msg, idx) => {
+                                    const isMine = msg.sender._id === user._id || msg.sender === user._id;
+                                    const msgTime = msg.createdAt
+                                        ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                        : '';
+
+                                    // Date separator: show when date changes between messages
+                                    const currentLabel = getDateLabel(msg.createdAt);
+                                    const prevLabel = idx > 0 ? getDateLabel(messages[idx - 1].createdAt) : null;
+                                    const showDateSeparator = currentLabel && currentLabel !== prevLabel;
+
+                                    return (
+                                        <div key={idx}>
+                                            {/* ── WhatsApp-style date pill ── */}
+                                            {showDateSeparator && (
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    margin: '16px 0 12px',
+                                                }}>
+                                                    <span style={{
+                                                        background: 'rgba(255,255,255,0.85)',
+                                                        backdropFilter: 'blur(8px)',
+                                                        border: '1px solid #e5e7eb',
+                                                        borderRadius: '999px',
+                                                        padding: '3px 14px',
+                                                        fontSize: '0.72rem',
+                                                        fontWeight: '600',
+                                                        color: '#6b7280',
+                                                        letterSpacing: '0.02em',
+                                                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                                                    }}>
+                                                        {currentLabel}
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            {/* ── Message bubble ── */}
+                                            <div style={{ display: 'flex', justifyContent: isMine ? 'flex-end' : 'flex-start', marginBottom: '4px' }}>
+                                                <div style={{
+                                                    maxWidth: '65%',
+                                                    width: 'fit-content',
+                                                    padding: '8px 12px 6px 12px',
+                                                    borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                                                    background: isMine ? 'linear-gradient(135deg, #3b82f6, #4f46e5)' : '#ffffff',
+                                                    color: isMine ? '#ffffff' : '#1f2937',
+                                                    boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+                                                    wordBreak: 'break-word',
+                                                    whiteSpace: 'pre-wrap',
+                                                    border: isMine ? 'none' : '1px solid #e5e7eb',
+                                                    fontSize: '0.875rem',
+                                                    lineHeight: '1.5',
+                                                }}>
+                                                    <span>{msg.content}</span>
+                                                    {msgTime && (
+                                                        <div style={{
+                                                            fontSize: '0.65rem',
+                                                            marginTop: '4px',
+                                                            textAlign: 'right',
+                                                            opacity: 0.7,
+                                                            color: isMine ? '#dbeafe' : '#9ca3af',
+                                                            whiteSpace: 'nowrap',
+                                                        }}>
+                                                            {msgTime}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                                 <div ref={messagesEndRef} />
                             </div>
 

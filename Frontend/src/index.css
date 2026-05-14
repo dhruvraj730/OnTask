@@ -54,8 +54,19 @@ body {
   @apply bg-gray-50 text-gray-900;
 }
 
-html {
+html, body {
   scroll-behavior: smooth;
+  height: 100%;
+  overflow-x: hidden; /* prevent horizontal scrollbar on any page */
+}
+
+/* Hide scrollbars cross-browser while keeping scroll functionality */
+.no-scrollbar {
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE / Edge */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;                /* Chrome, Safari, Opera */
 }
 
 /* Custom animations */

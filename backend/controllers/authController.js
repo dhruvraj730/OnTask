@@ -90,11 +90,23 @@ const updateUserProfile = async (req, res) => {
             if (req.body.bio) user.bio = req.body.bio;
 
             // Tasker Fields
-            if (req.body.skills) user.skills = req.body.skills;
+            if (req.body.skills) {
+                try {
+                    user.skills = typeof req.body.skills === 'string' ? JSON.parse(req.body.skills) : req.body.skills;
+                } catch(e) {
+                    user.skills = typeof req.body.skills === 'string' ? req.body.skills.split(',').map(s => s.trim()) : req.body.skills;
+                }
+            }
             if (req.body.hourlyRate) user.hourlyRate = req.body.hourlyRate;
             if (req.body.experience) user.experience = req.body.experience;
             if (req.body.professionalTitle) user.professionalTitle = req.body.professionalTitle;
-            if (req.body.bankDetails) user.bankDetails = req.body.bankDetails;
+            if (req.body.bankDetails) {
+                try {
+                    user.bankDetails = typeof req.body.bankDetails === 'string' ? JSON.parse(req.body.bankDetails) : req.body.bankDetails;
+                } catch(e) {
+                    user.bankDetails = req.body.bankDetails;
+                }
+            }
 
             // Organizer Fields
             if (req.body.companyName) user.companyName = req.body.companyName;
@@ -103,9 +115,13 @@ const updateUserProfile = async (req, res) => {
             if (req.body.hiringNeeds) user.hiringNeeds = req.body.hiringNeeds;
 
             if (req.body.businessAddress) {
+                let parsedAddress = req.body.businessAddress;
+                if (typeof parsedAddress === 'string') {
+                    try { parsedAddress = JSON.parse(parsedAddress); } catch(e) {}
+                }
                 user.businessAddress = {
                     ...user.businessAddress,
-                    ...req.body.businessAddress
+                    ...parsedAddress
                 };
             }
 
